@@ -113,4 +113,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Your Name - your.email@example.com
 
-Project Link: [https://github.com/yourusername/prep-academy](https://github.com/yourusername/prep-academy) 
+Project Link: [https://github.com/garrettcodes/prepacademy](https://github.com/garrettcodes/prepacademy) 
