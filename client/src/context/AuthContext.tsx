@@ -13,6 +13,14 @@ interface User {
   learningStyle: string;
   targetScore: number;
   testDate: string;
+  points: number;
+  badges: Array<{
+    _id: string;
+    name: string;
+    description: string;
+    icon: string;
+    category: string;
+  }>;
   token: string;
 }
 

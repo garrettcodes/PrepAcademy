@@ -8,6 +8,8 @@ export interface IUser extends Document {
   learningStyle: string;
   targetScore: number;
   testDate: Date;
+  points: number;
+  badges: mongoose.Types.ObjectId[];
   studyPlan: mongoose.Types.ObjectId;
   performanceData: mongoose.Types.ObjectId[];
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -50,6 +52,16 @@ const UserSchema: Schema = new Schema(
       type: Date,
       default: Date.now,
     },
+    points: {
+      type: Number,
+      default: 0,
+    },
+    badges: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Badge',
+      },
+    ],
     studyPlan: {
       type: Schema.Types.ObjectId,
       ref: 'StudyPlan',

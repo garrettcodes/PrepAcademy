@@ -83,7 +83,7 @@ export const login = async (req: Request, res: Response) => {
 // Get current user
 export const getCurrentUser = async (req: Request, res: Response) => {
   try {
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user.userId).populate('badges');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -95,6 +95,8 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       learningStyle: user.learningStyle,
       targetScore: user.targetScore,
       testDate: user.testDate,
+      points: user.points,
+      badges: user.badges,
     });
   } catch (error: any) {
     console.error('Get current user error:', error);

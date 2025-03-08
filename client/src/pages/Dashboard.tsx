@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { useStudy } from '../context/StudyContext';
 import { usePractice } from '../context/PracticeContext';
 import { useAI } from '../context/AIContext';
+import BadgeDisplay from '../components/ui/BadgeDisplay';
+import PointsBadge from '../components/ui/PointsBadge';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -240,18 +242,18 @@ const Dashboard: React.FC = () => {
           </div>
         </Card>
 
-        {/* Learning style card */}
+        {/* User profile or learning profile card */}
         <Card title="Your Learning Profile">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="font-medium text-gray-900">Learning Style</h4>
-              <Badge variant="info">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                 {user?.learningStyle ? (
                   user.learningStyle.charAt(0).toUpperCase() + user.learningStyle.slice(1)
                 ) : (
                   'Not set'
                 )}
-              </Badge>
+              </span>
             </div>
             <p className="text-gray-600">
               {user?.learningStyle === 'visual' && 'You learn best through visual aids like diagrams, charts, and videos.'}
@@ -260,6 +262,10 @@ const Dashboard: React.FC = () => {
               {user?.learningStyle === 'reading/writing' && 'You learn best through reading materials and writing notes.'}
               {!user?.learningStyle && 'Take the diagnostic test to determine your learning style.'}
             </p>
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-gray-900">Points</h4>
+              <PointsBadge points={user?.points || 0} />
+            </div>
             <div>
               <Link to="/diagnostic">
                 <Button variant="outline">Update Learning Profile</Button>
@@ -267,6 +273,15 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </Card>
+
+        {/* Badges section */}
+        {user && (
+          <BadgeDisplay 
+            badges={user.badges || []} 
+            title="Your Achievements" 
+            className="mt-4"
+          />
+        )}
       </div>
     </div>
   );

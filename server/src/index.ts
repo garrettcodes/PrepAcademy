@@ -12,6 +12,7 @@ import examRoutes from './routes/exam.routes';
 import aiRoutes from './routes/ai.routes';
 import questionRoutes from './routes/question.routes';
 import performanceRoutes from './routes/performance.routes';
+import badgeRoutes from './routes/badge.routes';
 
 // Load environment variables
 dotenv.config();
@@ -33,6 +34,7 @@ app.use('/api/exams', examRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/badges', badgeRoutes);
 
 // Default route
 app.get('/', (req: Request, res: Response) => {
