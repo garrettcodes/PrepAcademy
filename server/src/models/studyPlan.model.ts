@@ -6,11 +6,23 @@ interface Task {
   dueDate?: Date;
 }
 
+interface Recommendation {
+  subject: string;
+  subtopics: string[];
+  resources: string[];
+  priority: string;
+}
+
 export interface IStudyPlan extends Document {
   userId: mongoose.Types.ObjectId;
   dailyGoals: Task[];
   weeklyGoals: Task[];
   progress: number;
+  weakAreas: string[];
+  recommendations: Recommendation[];
+  completedTopics: string[];
+  overallProgress: number;
+  learningStyleRecommendations: string[];
 }
 
 const StudyPlanSchema: Schema = new Schema(
@@ -65,6 +77,47 @@ const StudyPlanSchema: Schema = new Schema(
       default: 0,
       min: 0,
       max: 100,
+    },
+    // New fields for enhanced study plan
+    weakAreas: {
+      type: [String],
+      default: [],
+    },
+    recommendations: [
+      {
+        subject: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        subtopics: {
+          type: [String],
+          default: [],
+        },
+        resources: {
+          type: [String],
+          default: [],
+        },
+        priority: {
+          type: String,
+          enum: ['low', 'medium', 'high'],
+          default: 'medium',
+        },
+      },
+    ],
+    completedTopics: {
+      type: [String],
+      default: [],
+    },
+    overallProgress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+    learningStyleRecommendations: {
+      type: [String],
+      default: [],
     },
   },
   { timestamps: true }

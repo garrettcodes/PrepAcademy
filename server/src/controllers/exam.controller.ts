@@ -201,7 +201,14 @@ export const submitExam = async (req: Request, res: Response) => {
 // Get next question for adaptive exam
 export const getNextQuestion = async (req: Request, res: Response) => {
   try {
-    const { examId, lastQuestionId, wasCorrect } = req.body;
+    // If it's a GET request, use params for examId and query for other params
+    // If it's a POST request, use body for all params
+    const examId = req.method === 'GET' ? req.params.id : req.body.examId;
+    const lastQuestionId = req.method === 'GET' ? req.query.lastQuestionId as string : req.body.lastQuestionId;
+    const wasCorrect = req.method === 'GET' 
+      ? req.query.wasCorrect === 'true' 
+      : req.body.wasCorrect;
+    
     const userId = req.user.userId;
 
     // Find the exam
@@ -222,22 +229,24 @@ export const getNextQuestion = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Exam attempt not found' });
     }
 
-    // Find the last question
-    const lastQuestion = await Question.findById(lastQuestionId);
-    
-    if (!lastQuestion) {
-      return res.status(404).json({ message: 'Last question not found' });
-    }
+    let nextDifficulty = 'medium'; // Default start with medium difficulty
 
-    // Determine next difficulty level
-    let nextDifficulty;
-    
-    if (wasCorrect === true) {
-      // If last answer was correct, increase difficulty
-      nextDifficulty = lastQuestion.difficulty === 'easy' ? 'medium' : 'hard';
-    } else {
-      // If last answer was incorrect, decrease difficulty
-      nextDifficulty = lastQuestion.difficulty === 'hard' ? 'medium' : 'easy';
+    if (lastQuestionId) {
+      // Find the last question
+      const lastQuestion = await Question.findById(lastQuestionId);
+      
+      if (!lastQuestion) {
+        return res.status(404).json({ message: 'Last question not found' });
+      }
+
+      // Determine next difficulty level based on user's performance
+      if (wasCorrect === true) {
+        // If last answer was correct, increase difficulty
+        nextDifficulty = lastQuestion.difficulty === 'easy' ? 'medium' : 'hard';
+      } else {
+        // If last answer was incorrect, decrease difficulty
+        nextDifficulty = lastQuestion.difficulty === 'hard' ? 'medium' : 'easy';
+      }
     }
 
     // Get already answered question IDs
@@ -249,21 +258,25 @@ export const getNextQuestion = async (req: Request, res: Response) => {
       difficulty: nextDifficulty,
     });
 
-    // If no question with the target difficulty, try any difficulty
-    const fallbackQuestion = !nextQuestion
-      ? await Question.findOne({
-          _id: { $in: exam.questions, $nin: answeredQuestionIds },
-        })
-      : null;
+    // If no question found with the adaptive difficulty, try finding any unanswered question
+    if (!nextQuestion) {
+      const anyQuestion = await Question.findOne({
+        _id: { $in: exam.questions, $nin: answeredQuestionIds },
+      });
 
-    const questionToSend = nextQuestion || fallbackQuestion;
+      if (!anyQuestion) {
+        return res.status(404).json({ message: 'No more questions available' });
+      }
 
-    if (!questionToSend) {
-      return res.status(404).json({ message: 'No more questions available' });
+      // Remove correct answer from question
+      const sanitizedQuestion = anyQuestion.toObject();
+      delete sanitizedQuestion.correctAnswer;
+
+      return res.status(200).json(sanitizedQuestion);
     }
 
     // Remove correct answer from question
-    const sanitizedQuestion = questionToSend.toObject();
+    const sanitizedQuestion = nextQuestion.toObject();
     delete sanitizedQuestion.correctAnswer;
 
     res.status(200).json(sanitizedQuestion);

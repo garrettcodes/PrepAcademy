@@ -1,0 +1,23 @@
+{
+  "name": "prepacademy",
+  "version": "1.0.0",
+  "description": "PrepAcademy is a comprehensive web and mobile application designed to help high school students achieve higher scores on the SAT and ACT exams. The platform leverages artificial intelligence to adapt to individual learning styles and knowledge levels, providing a personalized study experience.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/garrettcodes/PrepAcademy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/garrettcodes/PrepAcademy/issues"
+  },
+  "homepage": "https://github.com/garrettcodes/PrepAcademy#readme",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

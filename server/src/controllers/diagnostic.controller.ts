@@ -3,6 +3,15 @@ import Question from '../models/question.model';
 import User from '../models/user.model';
 import StudyPlan from '../models/studyPlan.model';
 import PerformanceData from '../models/performanceData.model';
+import { detectLearningStyle, getLearningStyleRecommendations } from '../utils/learningStyleDetector';
+import { generateStudyPlan } from '../utils/studyPlanGenerator';
+
+// Extend Request type to include user property
+interface AuthRequest extends Request {
+  user?: {
+    userId: string;
+  };
+}
 
 // Get diagnostic test questions
 export const getDiagnosticQuestions = async (req: Request, res: Response) => {
@@ -14,7 +23,91 @@ export const getDiagnosticQuestions = async (req: Request, res: Response) => {
     ]);
 
     if (!questions || questions.length === 0) {
-      return res.status(404).json({ message: 'No diagnostic questions found' });
+      // If no questions found, let's create some sample questions with different formats
+      const sampleQuestions = [
+        // Text format questions (Math)
+        {
+          text: "Solve for x: 2x + 5 = 15",
+          options: ["x = 5", "x = 10", "x = 7.5", "x = 4.5"],
+          correctAnswer: "x = 5",
+          subject: "Math",
+          difficulty: "medium",
+          format: "text",
+        },
+        {
+          text: "What is the area of a circle with radius 4 units?",
+          options: ["16π square units", "8π square units", "4π square units", "12π square units"],
+          correctAnswer: "16π square units",
+          subject: "Math",
+          difficulty: "medium",
+          format: "text",
+        },
+        
+        // Diagram format questions (Math)
+        {
+          text: "What is the value of angle x in the triangle below?",
+          options: ["30°", "45°", "60°", "90°"],
+          correctAnswer: "60°",
+          subject: "Math",
+          difficulty: "medium",
+          format: "diagram",
+          imageUrl: "https://example.com/triangle-diagram.png", // This would be a real image URL in production
+        },
+        {
+          text: "Which graph represents the function y = x² + 2x - 3?",
+          options: ["Graph A", "Graph B", "Graph C", "Graph D"],
+          correctAnswer: "Graph C",
+          subject: "Math",
+          difficulty: "medium",
+          format: "diagram",
+          imageUrl: "https://example.com/function-graphs.png", // This would be a real image URL in production
+        },
+        
+        // Audio format questions (English)
+        {
+          text: "Listen to the pronunciation and select the correctly spelled word:",
+          options: ["Necessary", "Neccessary", "Necesary", "Neccesary"],
+          correctAnswer: "Necessary",
+          subject: "English",
+          difficulty: "medium",
+          format: "audio",
+          audioUrl: "https://example.com/pronunciation.mp3", // This would be a real audio URL in production
+        },
+        {
+          text: "Listen to the passage and identify the main theme:",
+          options: ["Environmental conservation", "Economic policy", "Historical events", "Cultural diversity"],
+          correctAnswer: "Environmental conservation",
+          subject: "English",
+          difficulty: "medium",
+          format: "audio",
+          audioUrl: "https://example.com/passage.mp3", // This would be a real audio URL in production
+        },
+        
+        // Add more sample questions for each format...
+        // Reading questions (text format)
+        {
+          text: "According to the passage, what was the author's main argument?",
+          options: ["Technology improves education", "Traditional methods are more effective", "A balanced approach is best", "No clear conclusion was provided"],
+          correctAnswer: "A balanced approach is best",
+          subject: "Reading",
+          difficulty: "medium",
+          format: "text",
+        },
+        
+        // Science questions with diagrams
+        {
+          text: "Identify the organelle labeled 'X' in the cell diagram:",
+          options: ["Mitochondrion", "Nucleus", "Endoplasmic Reticulum", "Golgi Apparatus"],
+          correctAnswer: "Mitochondrion",
+          subject: "Science",
+          difficulty: "medium",
+          format: "diagram",
+          imageUrl: "https://example.com/cell-diagram.png", // This would be a real image URL in production
+        },
+      ];
+      
+      // Return sample questions
+      return res.status(200).json(sampleQuestions);
     }
 
     res.status(200).json(questions);
@@ -25,10 +118,14 @@ export const getDiagnosticQuestions = async (req: Request, res: Response) => {
 };
 
 // Submit diagnostic test answers
-export const submitDiagnosticTest = async (req: Request, res: Response) => {
+export const submitDiagnosticTest = async (req: AuthRequest, res: Response) => {
   try {
     const { answers, learningStyle } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
 
     if (!answers || !Array.isArray(answers)) {
       return res.status(400).json({ message: 'Invalid answers format' });
@@ -37,10 +134,16 @@ export const submitDiagnosticTest = async (req: Request, res: Response) => {
     // Calculate score and analyze results
     let totalScore = 0;
     const subjectScores: Record<string, { correct: number; total: number }> = {};
+    const formatScores: Record<string, { correct: number; total: number }> = {};
+
+    // Initialize format scores
+    formatScores.text = { correct: 0, total: 0 };
+    formatScores.diagram = { correct: 0, total: 0 };
+    formatScores.audio = { correct: 0, total: 0 };
 
     // Process each answer
     for (const answer of answers) {
-      const { questionId, selectedAnswer } = answer;
+      const { questionId, selectedAnswer, format } = answer;
       
       // Get the question
       const question = await Question.findById(questionId);
@@ -59,13 +162,23 @@ export const submitDiagnosticTest = async (req: Request, res: Response) => {
       }
       subjectScores[question.subject].total += 1;
 
+      // Update format scores
+      if (!formatScores[question.format]) {
+        formatScores[question.format] = { correct: 0, total: 0 };
+      }
+      
+      if (isCorrect) {
+        formatScores[question.format].correct += 1;
+      }
+      formatScores[question.format].total += 1;
+
       // Save performance data
       await PerformanceData.create({
         userId,
         subject: question.subject,
-        subtopic: 'Diagnostic', // Initial diagnostic doesn't have subtopics
+        subtopic: 'Diagnostic',
         score: isCorrect ? 100 : 0,
-        studyTime: 0, // No study time for diagnostic
+        studyTime: 0,
         date: new Date(),
       });
     }
@@ -86,59 +199,81 @@ export const submitDiagnosticTest = async (req: Request, res: Response) => {
       .filter(([_, { correct, total }]) => (correct / total) * 100 < 60)
       .map(([subject]) => subject);
 
-    // Update user's learning style if provided
-    if (learningStyle) {
-      await User.findByIdAndUpdate(userId, { learningStyle });
+    // Determine learning style based on format performance
+    let detectedLearningStyle = learningStyle;
+    
+    // If no learning style provided, determine it from question format performance
+    if (!detectedLearningStyle) {
+      detectedLearningStyle = detectLearningStyle(formatScores);
     }
 
-    // Generate a basic study plan based on diagnostic results
-    const existingPlan = await StudyPlan.findOne({ userId });
+    // Get learning style-specific recommendations
+    const styleRecommendations = getLearningStyleRecommendations(detectedLearningStyle);
+
+    // Generate personalized study plan based on results
+    const { dailyGoals, weeklyGoals } = generateStudyPlan(subjectScores, detectedLearningStyle);
+
+    // Update user's learning style
+    await User.findByIdAndUpdate(userId, { learningStyle: detectedLearningStyle });
+
+    // Create or update study plan based on diagnostic results
+    let studyPlan = await StudyPlan.findOne({ userId });
     
-    const dailyGoals = weakAreas.map(subject => ({
-      task: `Practice 20 ${subject} questions`,
-      status: 'pending',
-    }));
-
-    const weeklyGoals = weakAreas.map(subject => ({
-      task: `Complete 2 ${subject} video tutorials`,
-      status: 'pending',
-    }));
-
-    let studyPlan;
-    if (existingPlan) {
-      // Update existing plan
+    if (!studyPlan) {
+      // Create new study plan
+      studyPlan = await StudyPlan.create({
+        userId,
+        weakAreas,
+        recommendations: weakAreas.map(subject => ({
+          subject,
+          subtopics: ['General'], // Default subtopics
+          resources: [], // Empty resources to start
+          priority: 'high', // High priority for weak areas
+        })),
+        completedTopics: [],
+        overallProgress: 0,
+        learningStyleRecommendations: styleRecommendations,
+        dailyGoals,
+        weeklyGoals,
+        progress: 0
+      });
+    } else {
+      // Update existing study plan
       studyPlan = await StudyPlan.findByIdAndUpdate(
-        existingPlan._id,
+        studyPlan._id,
         {
+          weakAreas,
+          recommendations: weakAreas.map(subject => ({
+            subject,
+            subtopics: ['General'], // Default subtopics
+            resources: [], // Empty resources to start
+            priority: 'high', // High priority for weak areas
+          })),
+          overallProgress: 0, // Reset progress after new diagnostic
+          learningStyleRecommendations: styleRecommendations,
           dailyGoals,
           weeklyGoals,
-          progress: 0,
+          progress: 0
         },
         { new: true }
       );
-    } else {
-      // Create new plan
-      studyPlan = await StudyPlan.create({
-        userId,
-        dailyGoals,
-        weeklyGoals,
-        progress: 0,
-      });
-
-      // Link study plan to user
-      await User.findByIdAndUpdate(userId, { studyPlan: studyPlan._id });
     }
 
-    res.status(200).json({
+    // Return diagnostic results
+    const diagnosticResult = {
       score: totalScore,
       subjectScores,
+      formatScores,
       weakAreas,
       learningProfile: {
-        learningStyle: learningStyle || 'visual',
+        learningStyle: detectedLearningStyle,
         weakAreas,
+        styleRecommendations,
       },
       studyPlan,
-    });
+    };
+
+    res.status(200).json(diagnosticResult);
   } catch (error: any) {
     console.error('Submit diagnostic test error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

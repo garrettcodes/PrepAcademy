@@ -1,5 +1,10 @@
 import express from 'express';
-import { getStudyPlan, updateStudyPlan, generateAdaptiveStudyPlan } from '../controllers/studyPlan.controller';
+import { 
+  getStudyPlan, 
+  updateStudyPlan, 
+  generateStudyPlan,
+  updateTaskStatus
+} from '../controllers/studyPlan.controller';
 import { protect } from '../middleware/auth.middleware';
 
 const router = express.Router();
@@ -11,6 +16,9 @@ router.get('/', protect, getStudyPlan);
 router.post('/update', protect, updateStudyPlan);
 
 // POST /api/studyplan/generate - Generate adaptive study plan
-router.post('/generate', protect, generateAdaptiveStudyPlan);
+router.post('/generate', protect, generateStudyPlan);
+
+// PATCH /api/studyplan/task - Update task status
+router.patch('/task', protect, updateTaskStatus);
 
 export default router; 
