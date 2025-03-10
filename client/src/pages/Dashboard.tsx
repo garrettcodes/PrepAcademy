@@ -1,66 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Badge from '../components/ui/Badge';
 import { useAuth } from '../context/AuthContext';
 import { useStudy } from '../context/StudyContext';
 import { usePractice } from '../context/PracticeContext';
-import { useAI } from '../context/AIContext';
-import BadgeDisplay from '../components/ui/BadgeDisplay';
+import { usePerformance } from '../context/PerformanceContext';
 import PointsBadge from '../components/ui/PointsBadge';
+import PerformanceChart from '../components/charts/PerformanceChart';
+import Badge from '../components/ui/Badge';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, miniAssessmentDue, nextMiniAssessmentDate } = useAuth();
   const { studyPlan, fetchStudyPlan, loading: studyLoading } = useStudy();
   const { fetchExams, exams, loading: examLoading } = usePractice();
-  const { getRecommendations, recommendations, loading: aiLoading } = useAI();
-  const [hasDiagnostic, setHasDiagnostic] = useState(false);
+  const { fetchPerformanceSummary, performanceSummary, loading: performanceLoading } = usePerformance();
 
-  // Fetch study plan and exams on mount
+  // Fetch data on component mount
   useEffect(() => {
     fetchStudyPlan();
     fetchExams();
-    getRecommendations();
-    
-    // Check if user has taken diagnostic test
-    // For now, we'll consider having a study plan as evidence of taking the diagnostic
-    setHasDiagnostic(!!studyPlan);
-  }, [fetchStudyPlan, fetchExams, getRecommendations, studyPlan]);
+    fetchPerformanceSummary();
+  }, [fetchStudyPlan, fetchExams, fetchPerformanceSummary]);
 
-  // Helper to format dates
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  // Calculate days until test date
+  // Calculate days until test
   const getDaysUntilTest = () => {
     if (!user?.testDate) return null;
     
-    const testDate = new Date(user.testDate);
     const today = new Date();
-    const diffTime = testDate.getTime() - today.getTime();
+    const testDate = new Date(user.testDate);
+    const diffTime = Math.abs(testDate.getTime() - today.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    return diffDays > 0 ? diffDays : null;
-  };
-
-  // Get upcoming study goals
-  const getUpcomingGoals = () => {
-    if (!studyPlan) return [];
-    
-    // Combine daily and weekly goals, prioritize incomplete ones
-    const allGoals = [
-      ...studyPlan.dailyGoals.map(goal => ({ ...goal, type: 'Daily' })),
-      ...studyPlan.weeklyGoals.map(goal => ({ ...goal, type: 'Weekly' })),
-    ].filter(goal => goal.status !== 'completed');
-    
-    // Return up to 3 goals
-    return allGoals.slice(0, 3);
+    return diffDays;
   };
 
   return (
@@ -79,209 +49,212 @@ const Dashboard: React.FC = () => {
           
           {getDaysUntilTest() && (
             <div className="mt-4 md:mt-0">
-              <Badge variant="primary" className="text-sm">
-                {getDaysUntilTest()} days until your test
-              </Badge>
+              <Badge 
+                name={`${getDaysUntilTest()} days until your test`}
+                description=""
+                icon="calendar"
+                size="md" 
+              />
             </div>
           )}
         </div>
       </div>
+      
+      {/* Mini-Assessment Alert */}
+      {miniAssessmentDue && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                Your bi-weekly learning style assessment is now available.
+                <Link to="/mini-assessment" className="font-medium underline ml-1">
+                  Take it now
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {!miniAssessmentDue && nextMiniAssessmentDate && (
+        <div className="text-sm text-gray-500 mb-6 bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+          Next learning style assessment: {new Date(nextMiniAssessmentDate).toLocaleDateString()}
+        </div>
+      )}
 
       {/* Main dashboard grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Diagnostic test card */}
-        <Card
-          title="Diagnostic Test"
-          className={`${hasDiagnostic ? 'border-green-200' : 'border-yellow-200'}`}
-        >
-          <div className="space-y-4">
-            <p className="text-gray-600">
-              {hasDiagnostic
-                ? 'You have completed the diagnostic test. You can retake it anytime to update your learning profile.'
-                : 'Take a diagnostic test to identify your strengths and weaknesses, and get a personalized study plan.'}
-            </p>
-            <div>
-              <Link to="/diagnostic">
-                <Button variant={hasDiagnostic ? 'outline' : 'primary'}>
-                  {hasDiagnostic ? 'Retake Diagnostic' : 'Take Diagnostic Test'}
-                </Button>
-              </Link>
+        {/* Points and badges card */}
+        <div className="bg-white rounded-lg shadow-sm p-6 col-span-1">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">
+            Your Achievements
+          </h2>
+          <div className="flex items-center mb-4">
+            <PointsBadge points={user?.points || 0} size="lg" />
+            <div className="ml-4">
+              <div className="text-2xl font-bold text-gray-800">{user?.points || 0}</div>
+              <div className="text-sm text-gray-500">Total points earned</div>
             </div>
           </div>
-        </Card>
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-sm font-medium text-gray-700">Badges</div>
+              <Link to="/profile" className="text-sm text-indigo-600 hover:text-indigo-800">
+                View all
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {user?.badges && user.badges.length > 0 ? (
+                user.badges.slice(0, 3).map((badge: any) => (
+                  <Badge
+                    key={badge._id}
+                    name={badge.name}
+                    description={badge.description}
+                    icon={badge.icon}
+                    size="sm"
+                  />
+                ))
+              ) : (
+                <div className="text-sm text-gray-500 py-2">
+                  No badges earned yet. Keep studying to earn badges!
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-        {/* Study plan card */}
-        <Card
-          title="Study Plan"
-          className={`${studyPlan ? 'border-green-200' : 'border-gray-200'}`}
-          headerAction={studyPlan && <Badge variant="success">{studyPlan.progress}% Complete</Badge>}
-        >
-          <div className="space-y-4">
-            {studyLoading ? (
-              <div className="py-4 flex justify-center">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        {/* Study plan progress */}
+        <div className="bg-white rounded-lg shadow-sm p-6 col-span-1">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-medium text-gray-900">
+              Study Plan
+            </h2>
+            <Link to="/study-plan" className="text-sm text-indigo-600 hover:text-indigo-800">
+              View plan
+            </Link>
+          </div>
+          
+          {studyLoading ? (
+            <div className="text-center py-4">
+              <div className="spinner"></div>
+            </div>
+          ) : studyPlan ? (
+            <>
+              <div className="mb-4">
+                <div className="text-sm text-gray-500 mb-1">Overall Progress</div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-500 h-2 rounded-full"
+                    style={{ width: `${studyPlan.progress || 0}%` }}
+                  ></div>
+                </div>
+                <div className="text-right text-sm text-gray-500 mt-1">
+                  {studyPlan.progress || 0}%
+                </div>
               </div>
-            ) : studyPlan ? (
-              <>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-gray-900">Upcoming Tasks</h4>
-                  {getUpcomingGoals().length > 0 ? (
-                    <ul className="space-y-2">
-                      {getUpcomingGoals().map((goal, index) => (
+              
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">Upcoming Tasks</div>
+                {studyPlan.dailyGoals && studyPlan.dailyGoals.length > 0 ? (
+                  <ul className="space-y-2">
+                    {studyPlan.dailyGoals
+                      .filter(goal => goal.status !== 'completed')
+                      .slice(0, 3)
+                      .map((goal, index) => (
                         <li key={index} className="flex items-start">
-                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary-light text-primary text-xs mr-2">
-                            {goal.type === 'Daily' ? 'D' : 'W'}
-                          </span>
-                          <span className="text-gray-700">{goal.task}</span>
+                          <span className="flex-shrink-0 w-2 h-2 rounded-full bg-indigo-500 mt-1.5 mr-2"></span>
+                          <div className="text-sm text-gray-700">{goal.task}</div>
                         </li>
                       ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500">All tasks completed!</p>
-                  )}
-                </div>
-                <div>
-                  <Link to="/study-plan">
-                    <Button variant="outline">View Full Study Plan</Button>
-                  </Link>
-                </div>
-              </>
-            ) : (
-              <div className="py-2">
-                <p className="text-gray-600 mb-4">
-                  You don't have a study plan yet. Take the diagnostic test to generate one.
-                </p>
-                <Link to="/diagnostic">
-                  <Button>Take Diagnostic Test</Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Practice exams card */}
-        <Card title="Practice Exams">
-          <div className="space-y-4">
-            {examLoading ? (
-              <div className="py-4 flex justify-center">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : exams && exams.length > 0 ? (
-              <>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-gray-900">Available Exams</h4>
-                  <ul className="space-y-2">
-                    {exams.slice(0, 3).map((exam) => (
-                      <li key={exam._id} className="flex items-center justify-between">
-                        <span className="text-gray-700">{exam.title}</span>
-                        <Badge variant={exam.difficulty === 'easy' ? 'success' : exam.difficulty === 'hard' ? 'danger' : 'warning'}>
-                          {exam.difficulty}
-                        </Badge>
-                      </li>
-                    ))}
                   </ul>
-                </div>
-                <div>
-                  <Link to="/exams">
-                    <Button variant="outline">View All Exams</Button>
-                  </Link>
-                </div>
-              </>
-            ) : (
-              <p className="text-gray-600">
-                Practice exams are being prepared for you. Check back soon or explore practice questions.
-              </p>
-            )}
-          </div>
-        </Card>
-
-        {/* Practice questions card */}
-        <Card title="Practice Questions">
-          <div className="space-y-4">
-            <p className="text-gray-600">
-              Practice with unlimited questions to improve your skills and knowledge.
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Link to="/practice">
-                  <Button fullWidth>Practice Now</Button>
-                </Link>
-              </div>
-              <div>
-                <Link to="/performance">
-                  <Button variant="outline" fullWidth>View Progress</Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* AI recommendations card */}
-        <Card title="Study Recommendations">
-          <div className="space-y-4">
-            {aiLoading ? (
-              <div className="py-4 flex justify-center">
-                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : recommendations.length > 0 ? (
-              <ul className="space-y-2">
-                {recommendations.slice(0, 3).map((recommendation, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary-light text-primary text-xs mr-2">
-                      {index + 1}
-                    </span>
-                    <span className="text-gray-700">{recommendation}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-600">
-                Complete the diagnostic test to get personalized recommendations.
-              </p>
-            )}
-          </div>
-        </Card>
-
-        {/* User profile or learning profile card */}
-        <Card title="Your Learning Profile">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-gray-900">Learning Style</h4>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {user?.learningStyle ? (
-                  user.learningStyle.charAt(0).toUpperCase() + user.learningStyle.slice(1)
                 ) : (
-                  'Not set'
+                  <div className="text-sm text-gray-500 py-2">
+                    No upcoming tasks
+                  </div>
                 )}
-              </span>
-            </div>
-            <p className="text-gray-600">
-              {user?.learningStyle === 'visual' && 'You learn best through visual aids like diagrams, charts, and videos.'}
-              {user?.learningStyle === 'auditory' && 'You learn best through listening to lectures, discussions, and audio materials.'}
-              {user?.learningStyle === 'kinesthetic' && 'You learn best through hands-on activities and interactive exercises.'}
-              {user?.learningStyle === 'reading/writing' && 'You learn best through reading materials and writing notes.'}
-              {!user?.learningStyle && 'Take the diagnostic test to determine your learning style.'}
-            </p>
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-gray-900">Points</h4>
-              <PointsBadge points={user?.points || 0} />
-            </div>
-            <div>
-              <Link to="/diagnostic">
-                <Button variant="outline">Update Learning Profile</Button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500">
+                No study plan found.
+              </p>
+              <Link 
+                to="/diagnostic"
+                className="mt-2 inline-block px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+              >
+                Take Diagnostic Test
               </Link>
             </div>
-          </div>
-        </Card>
+          )}
+        </div>
 
-        {/* Badges section */}
-        {user && (
-          <BadgeDisplay 
-            badges={user.badges || []} 
-            title="Your Achievements" 
-            className="mt-4"
-          />
-        )}
+        {/* Recent performance */}
+        <div className="bg-white rounded-lg shadow-sm p-6 col-span-1">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-medium text-gray-900">
+              Performance
+            </h2>
+            <Link to="/performance" className="text-sm text-indigo-600 hover:text-indigo-800">
+              Full metrics
+            </Link>
+          </div>
+          
+          {performanceLoading ? (
+            <div className="text-center py-4">
+              <div className="spinner"></div>
+            </div>
+          ) : performanceSummary && performanceSummary.recentScores?.length > 0 ? (
+            <>
+              <div className="h-40 mb-4">
+                <PerformanceChart data={performanceSummary.recentScores} />
+              </div>
+              <div className="flex justify-around text-center">
+                <div>
+                  <div className="text-lg font-bold text-gray-800">
+                    {performanceSummary.averageScore || 0}%
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Average Score
+                  </div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-gray-800">
+                    {performanceSummary.questionsAnswered || 0}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Questions Answered
+                  </div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-gray-800">
+                    {performanceSummary.studyTimeHours || 0}h
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Study Time
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500">
+                No performance data yet.
+              </p>
+              <Link 
+                to="/practice"
+                className="mt-2 inline-block px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+              >
+                Start Practicing
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

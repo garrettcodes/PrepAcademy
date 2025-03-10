@@ -6,6 +6,15 @@ import StudyTimer from '../../components/ui/StudyTimer';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
+import BadgeEarnedNotification from '../../components/ui/BadgeEarnedNotification';
+
+interface Badge {
+  _id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+}
 
 const PracticeQuestions: React.FC = () => {
   const { fetchQuestions, questions, loading, error } = usePractice();
@@ -26,6 +35,10 @@ const PracticeQuestions: React.FC = () => {
     explanation: string;
     similarQuestions?: any[];
   } | null>(null);
+  
+  // Badge notification state
+  const [earnedBadges, setEarnedBadges] = useState<Badge[]>([]);
+  const [currentBadgeIndex, setCurrentBadgeIndex] = useState(0);
   
   const [loadingAnswer, setLoadingAnswer] = useState(false);
 
@@ -77,6 +90,12 @@ const PracticeQuestions: React.FC = () => {
         similarQuestions: response.similarQuestions,
       });
       setShowFeedback(true);
+      
+      // Check if badges were earned
+      if (response.earnedBadges && response.earnedBadges.length > 0) {
+        setEarnedBadges(response.earnedBadges);
+        setCurrentBadgeIndex(0);
+      }
     } catch (error) {
       console.error('Error submitting answer:', error);
     } finally {
@@ -96,6 +115,17 @@ const PracticeQuestions: React.FC = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
       setShowFeedback(false);
+    }
+  };
+  
+  // Handle badge notification close
+  const handleBadgeClose = () => {
+    if (currentBadgeIndex < earnedBadges.length - 1) {
+      // Show next badge
+      setCurrentBadgeIndex(currentBadgeIndex + 1);
+    } else {
+      // No more badges, clear the list
+      setEarnedBadges([]);
     }
   };
 
@@ -231,6 +261,14 @@ const PracticeQuestions: React.FC = () => {
             )}
           </Card>
         </div>
+      )}
+      
+      {/* Badge notification */}
+      {earnedBadges.length > 0 && (
+        <BadgeEarnedNotification 
+          badge={earnedBadges[currentBadgeIndex]} 
+          onClose={handleBadgeClose} 
+        />
       )}
     </div>
   );

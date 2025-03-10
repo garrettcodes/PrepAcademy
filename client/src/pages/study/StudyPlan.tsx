@@ -14,11 +14,20 @@ interface Task {
   dueDate?: string;
 }
 
+// Define notification interface
+interface Notification {
+  type: string;
+  message: string;
+  details: any;
+}
+
 const StudyPlan: React.FC = () => {
   const navigate = useNavigate();
   const { studyPlan, fetchStudyPlan, loading, error } = useStudy();
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotification, setShowNotification] = useState(false);
 
   // Fetch study plan on mount
   useEffect(() => {
@@ -47,6 +56,17 @@ const StudyPlan: React.FC = () => {
       if (response.status === 200) {
         // Refresh study plan
         fetchStudyPlan();
+        
+        // Check for notifications
+        if (response.data.notifications && response.data.notifications.length > 0) {
+          setNotifications(response.data.notifications);
+          setShowNotification(true);
+          
+          // Auto-hide notification after 5 seconds
+          setTimeout(() => {
+            setShowNotification(false);
+          }, 5000);
+        }
       }
     } catch (error) {
       console.error('Error updating task status:', error);
@@ -85,43 +105,38 @@ const StudyPlan: React.FC = () => {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col items-center justify-center h-64">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-600">Loading your study plan...</p>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <div className="flex justify-center items-center h-40">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
         </div>
       </div>
     );
   }
-  
+
   // Error state
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
-          <p className="mb-3">Error: {error}</p>
-          <button 
-            className="bg-red-100 text-red-800 px-4 py-2 rounded"
-            onClick={() => navigate('/dashboard')}
-          >
-            Return to Dashboard
-          </button>
+        <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded mb-6">
+          {error}
         </div>
       </div>
     );
   }
-  
-  // No study plan state
+
+  // If no study plan
   if (!studyPlan) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold mb-4">No Study Plan Found</h2>
-          <p className="mb-4">
-            You don't have a study plan yet. Take the diagnostic test to generate one.
+        <div className="bg-white p-6 rounded-lg shadow-md text-center">
+          <h2 className="text-xl font-semibold mb-4">No Study Plan Found</h2>
+          <p className="text-gray-600 mb-6">
+            You don't have a study plan yet. Take the diagnostic test to create a personalized study plan.
           </p>
-          <button 
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
+          <button
             onClick={() => navigate('/diagnostic')}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Take Diagnostic Test
           </button>
@@ -130,11 +145,47 @@ const StudyPlan: React.FC = () => {
     );
   }
 
-  // Get tasks for the selected tab
   const tasks = selectedTab === 'daily' ? studyPlan.dailyGoals : studyPlan.weeklyGoals;
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Notification Toast */}
+      {showNotification && notifications.length > 0 && (
+        <div className="fixed top-20 right-4 z-50">
+          {notifications.map((notification, index) => (
+            <div 
+              key={index}
+              className={`mb-2 p-4 rounded-md shadow-lg text-white ${
+                notification.type === 'milestone' ? 'bg-purple-600' : 'bg-green-600'
+              }`}
+            >
+              <div className="flex items-start">
+                <div className="mr-2">
+                  {notification.type === 'taskCompleted' ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <p>{notification.message}</p>
+                </div>
+                <button 
+                  className="ml-auto text-white opacity-75 hover:opacity-100"
+                  onClick={() => setShowNotification(false)}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">My Study Plan</h1>
@@ -162,33 +213,51 @@ const StudyPlan: React.FC = () => {
           </div>
         )}
 
+        {/* Display struggling areas recommendations if available */}
+        {studyPlan.recommendations && studyPlan.recommendations.length > 0 && (
+          <div className="mb-6 p-4 bg-yellow-50 rounded-lg">
+            <h3 className="text-lg font-semibold mb-2">Additional Resources for Struggling Areas</h3>
+            <div className="space-y-3">
+              {studyPlan.recommendations.map((rec, index) => (
+                <div key={index}>
+                  <h4 className="font-medium text-gray-800">{rec.subject}</h4>
+                  {rec.resources && rec.resources.length > 0 && (
+                    <ul className="list-disc pl-5 space-y-1 mt-1">
+                      {rec.resources.map((resource, resIndex) => (
+                        <li key={resIndex} className="text-gray-700">{resource}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="flex -mb-px">
-            <button
-              className={`px-4 py-2 border-b-2 font-medium text-sm ${
-                selectedTab === 'daily'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              onClick={() => setSelectedTab('daily')}
-            >
-              Daily Goals
-            </button>
-            <button
-              className={`ml-8 px-4 py-2 border-b-2 font-medium text-sm ${
-                selectedTab === 'weekly'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              onClick={() => setSelectedTab('weekly')}
-            >
-              Weekly Goals
-            </button>
-          </nav>
+        <div className="flex border-b mb-6">
+          <button
+            className={`py-2 px-4 font-medium ${
+              selectedTab === 'daily'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setSelectedTab('daily')}
+          >
+            Daily Goals
+          </button>
+          <button
+            className={`py-2 px-4 font-medium ${
+              selectedTab === 'weekly'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setSelectedTab('weekly')}
+          >
+            Weekly Goals
+          </button>
         </div>
 
-        {/* Tasks List */}
         <div className="space-y-4">
           {tasks.length === 0 ? (
             <p className="text-gray-500 text-center py-6">

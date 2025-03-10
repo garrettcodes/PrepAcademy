@@ -8,6 +8,7 @@ import { AIProvider } from './context/AIContext';
 import { PerformanceProvider } from './context/PerformanceContext';
 import Dashboard from './pages/Dashboard';
 import DiagnosticTest from './pages/diagnostic/DiagnosticTest';
+import MiniAssessment from './pages/diagnostic/MiniAssessment';
 import StudyPlan from './pages/study/StudyPlan';
 import PracticeQuestions from './pages/practice/PracticeQuestions';
 import PracticeExams from './pages/practice/PracticeExams';
@@ -20,7 +21,12 @@ import NotFound from './pages/NotFound';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
 import BadgeNotification from './components/ui/BadgeNotification';
+import AssessmentNotification from './components/ui/AssessmentNotification';
 import Profile from './pages/Profile';
+import ExamResultPage from './pages/practice/ExamResultPage';
+import StudyTimeTest from './pages/test/StudyTimeTest';
+import AIAssistantTest from './pages/test/AIAssistantTest';
+import GamificationTest from './pages/test/GamificationTest';
 
 // Root component that sets up providers
 const App: React.FC = () => {
@@ -45,10 +51,18 @@ const App: React.FC = () => {
 
 // Main app content with access to context values
 const AppContent: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, miniAssessmentDue } = useAuth();
   const questionContext = useContext(QuestionContext);
   const newlyEarnedBadges = questionContext?.newlyEarnedBadges || [];
   const clearNewBadges = questionContext?.clearNewBadges || (() => {});
+  const [showMiniAssessmentNotification, setShowMiniAssessmentNotification] = React.useState(false);
+
+  // Show mini-assessment notification when due
+  React.useEffect(() => {
+    if (isAuthenticated && miniAssessmentDue) {
+      setShowMiniAssessmentNotification(true);
+    }
+  }, [isAuthenticated, miniAssessmentDue]);
 
   return (
     <>
@@ -58,6 +72,13 @@ const AppContent: React.FC = () => {
           onClose={clearNewBadges} 
         />
       )}
+      
+      {showMiniAssessmentNotification && (
+        <AssessmentNotification 
+          onClose={() => setShowMiniAssessmentNotification(false)} 
+        />
+      )}
+      
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Landing />} />
@@ -81,6 +102,12 @@ const AppContent: React.FC = () => {
           <Route path="/diagnostic" element={
             <PrivateRoute>
               <DiagnosticTest />
+            </PrivateRoute>
+          } />
+          
+          <Route path="/mini-assessment" element={
+            <PrivateRoute>
+              <MiniAssessment />
             </PrivateRoute>
           } />
           
@@ -108,16 +135,26 @@ const AppContent: React.FC = () => {
             </PrivateRoute>
           } />
           
+          <Route path="/exams/results" element={<PrivateRoute><ExamResultPage /></PrivateRoute>} />
+          
           <Route path="/performance" element={
             <PrivateRoute>
               <Performance />
             </PrivateRoute>
           } />
+          
+          {/* Test Routes */}
+          <Route path="/test/study-time" element={
+            <PrivateRoute>
+              <StudyTimeTest />
+            </PrivateRoute>
+          } />
+          <Route path="/test/ai-assistant" element={<PrivateRoute><AIAssistantTest /></PrivateRoute>} />
+          <Route path="/test/gamification" element={<PrivateRoute><GamificationTest /></PrivateRoute>} />
         </Route>
 
-        {/* 404 Route */}
-        <Route path="/not-found" element={<NotFound />} />
-        <Route path="*" element={<Navigate to="/not-found" replace />} />
+        {/* Catch all route for 404 */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

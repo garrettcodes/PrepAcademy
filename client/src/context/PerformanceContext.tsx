@@ -26,12 +26,24 @@ interface DailyProgress {
 interface SubjectTrend {
   subject: string;
   dates: string[];
-  scores: (number | null)[];
+  scores: number[];
 }
 
 interface StudyTimeSubject {
   subject: string;
   studyTime: number;
+}
+
+// New analytics interfaces
+interface ImprovementRate {
+  improvementRate: number;
+  correlation: number;
+}
+
+interface ProjectedScore {
+  current: number;
+  oneWeek: number;
+  oneMonth: number;
 }
 
 interface PerformanceContextProps {
@@ -45,6 +57,9 @@ interface PerformanceContextProps {
   totalStudyTime: number;
   scoresTrendBySubject: SubjectTrend[];
   studyTimers: Record<string, { start: Date; subject: string; subtopic: string; }>;
+  // Advanced analytics
+  improvementRates: Record<string, ImprovementRate>;
+  projectedScores: Record<string, ProjectedScore>;
   fetchPerformanceData: (subject?: string, startDate?: string, endDate?: string) => Promise<void>;
   startStudyTimer: (subject: string, subtopic: string) => string;
   stopStudyTimer: (timerId: string, score?: number) => Promise<void>;
@@ -64,6 +79,9 @@ export const PerformanceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [overallAverage, setOverallAverage] = useState<number>(0);
   const [totalStudyTime, setTotalStudyTime] = useState<number>(0);
   const [studyTimers, setStudyTimers] = useState<Record<string, { start: Date; subject: string; subtopic: string; }>>({});
+  // New state for advanced analytics
+  const [improvementRates, setImprovementRates] = useState<Record<string, ImprovementRate>>({});
+  const [projectedScores, setProjectedScores] = useState<Record<string, ProjectedScore>>({});
 
   // Fetch performance data
   const fetchPerformanceData = async (subject?: string, startDate?: string, endDate?: string) => {
@@ -80,6 +98,9 @@ export const PerformanceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setTotalStudyTime(data.totalStudyTime || 0);
       setStudyTimeBySubject(data.studyTimeBySubject || []);
       setScoresTrendBySubject(data.scoresTrendBySubject || []);
+      // Set advanced analytics data
+      setImprovementRates(data.improvementRates || {});
+      setProjectedScores(data.projectedScores || {});
     } catch (err: any) {
       setError(err.message || 'Failed to fetch performance data');
       console.error('Error fetching performance data:', err);
@@ -156,6 +177,9 @@ export const PerformanceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         totalStudyTime,
         scoresTrendBySubject,
         studyTimers,
+        // Advanced analytics
+        improvementRates,
+        projectedScores,
         fetchPerformanceData,
         startStudyTimer,
         stopStudyTimer,

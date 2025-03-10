@@ -120,7 +120,7 @@ export const getDiagnosticQuestions = async (req: Request, res: Response) => {
 // Submit diagnostic test answers
 export const submitDiagnosticTest = async (req: AuthRequest, res: Response) => {
   try {
-    const { answers, learningStyle } = req.body;
+    const { answers, learningStyle: clientLearningStyle } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -136,14 +136,15 @@ export const submitDiagnosticTest = async (req: AuthRequest, res: Response) => {
     const subjectScores: Record<string, { correct: number; total: number }> = {};
     const formatScores: Record<string, { correct: number; total: number }> = {};
 
-    // Initialize format scores
-    formatScores.text = { correct: 0, total: 0 };
-    formatScores.diagram = { correct: 0, total: 0 };
-    formatScores.audio = { correct: 0, total: 0 };
+    // Initialize format scores for all standard formats
+    const standardFormats = ['text', 'diagram', 'audio', 'video', 'interactive'];
+    standardFormats.forEach(format => {
+      formatScores[format] = { correct: 0, total: 0 };
+    });
 
     // Process each answer
     for (const answer of answers) {
-      const { questionId, selectedAnswer, format } = answer;
+      const { questionId, selectedAnswer } = answer;
       
       // Get the question
       const question = await Question.findById(questionId);
@@ -200,21 +201,33 @@ export const submitDiagnosticTest = async (req: AuthRequest, res: Response) => {
       .map(([subject]) => subject);
 
     // Determine learning style based on format performance
-    let detectedLearningStyle = learningStyle;
+    // If client provided a learning style, validate it against our detection
+    const detectedLearningStyle = detectLearningStyle(formatScores);
     
-    // If no learning style provided, determine it from question format performance
-    if (!detectedLearningStyle) {
-      detectedLearningStyle = detectLearningStyle(formatScores);
-    }
+    // Log the learning style detection process for debugging
+    console.log('Learning Style Detection:', {
+      formatScores,
+      detectedStyle: detectedLearningStyle,
+      clientProvidedStyle: clientLearningStyle
+    });
+    
+    // Use detected learning style (trust our algorithm over client-side)
+    const finalLearningStyle = detectedLearningStyle;
 
     // Get learning style-specific recommendations
-    const styleRecommendations = getLearningStyleRecommendations(detectedLearningStyle);
+    const styleRecommendations = getLearningStyleRecommendations(finalLearningStyle);
 
     // Generate personalized study plan based on results
-    const { dailyGoals, weeklyGoals } = generateStudyPlan(subjectScores, detectedLearningStyle);
+    const { dailyGoals, weeklyGoals } = generateStudyPlan(subjectScores, finalLearningStyle);
 
-    // Update user's learning style
-    await User.findByIdAndUpdate(userId, { learningStyle: detectedLearningStyle });
+    // Update user's learning style and set the next mini-assessment date (2 weeks from now)
+    const nextMiniAssessmentDate = new Date();
+    nextMiniAssessmentDate.setDate(nextMiniAssessmentDate.getDate() + 14);
+    
+    await User.findByIdAndUpdate(userId, { 
+      learningStyle: finalLearningStyle,
+      nextMiniAssessmentDate 
+    });
 
     // Create or update study plan based on diagnostic results
     let studyPlan = await StudyPlan.findOne({ userId });
@@ -266,9 +279,10 @@ export const submitDiagnosticTest = async (req: AuthRequest, res: Response) => {
       formatScores,
       weakAreas,
       learningProfile: {
-        learningStyle: detectedLearningStyle,
+        learningStyle: finalLearningStyle,
         weakAreas,
         styleRecommendations,
+        nextMiniAssessmentDate
       },
       studyPlan,
     };

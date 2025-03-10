@@ -25,19 +25,22 @@ interface User {
 }
 
 // Define auth context interface
-interface AuthContextType {
+interface IAuthContext {
   user: User | null;
+  isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
-  register: (name: string, email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
-  isAuthenticated: boolean;
+  miniAssessmentDue: boolean;
+  nextMiniAssessmentDate: Date | null;
+  checkMiniAssessmentStatus: () => Promise<void>;
 }
 
 // Create auth context
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<IAuthContext | undefined>(undefined);
 
 // Create auth provider component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -45,6 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [miniAssessmentDue, setMiniAssessmentDue] = useState<boolean>(false);
+  const [nextMiniAssessmentDate, setNextMiniAssessmentDate] = useState<Date | null>(null);
   const navigate = useNavigate();
 
   // Load user from local storage on initial render
@@ -139,17 +144,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
   };
 
+  // Check mini-assessment status
+  const checkMiniAssessmentStatus = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      };
+
+      const response = await axios.get(`${API_URL}/mini-assessment/status`, config);
+      setMiniAssessmentDue(response.data.isDue);
+      setNextMiniAssessmentDate(response.data.nextAssessmentDate ? new Date(response.data.nextAssessmentDate) : null);
+    } catch (error) {
+      console.error('Error checking mini-assessment status:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Check mini-assessment status on initial load and when auth state changes
+    if (isAuthenticated) {
+      checkMiniAssessmentStatus();
+    }
+  }, [isAuthenticated]);
+
+  // Set up periodic check for mini-assessment status
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Check every hour
+    const interval = setInterval(() => {
+      checkMiniAssessmentStatus();
+    }, 60 * 60 * 1000); // 1 hour
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        isAuthenticated,
         loading,
         error,
-        register,
         login,
+        register,
         logout,
         clearError,
-        isAuthenticated,
+        miniAssessmentDue,
+        nextMiniAssessmentDate,
+        checkMiniAssessmentStatus,
       }}
     >
       {children}
@@ -158,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 // Create hook for using auth context
-export const useAuth = (): AuthContextType => {
+export const useAuth = (): IAuthContext => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

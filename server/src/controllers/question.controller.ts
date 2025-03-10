@@ -85,9 +85,9 @@ export const submitAnswer = async (req: Request, res: Response) => {
     let similarQuestions = [];
     if (!isCorrect) {
       similarQuestions = await Question.find({
+        _id: { $ne: questionId },
         subject: question.subject,
-        difficulty: question.difficulty,
-        _id: { $ne: question._id }, // Exclude current question
+        difficulty: question.difficulty
       }).limit(3);
     }
 
@@ -98,7 +98,7 @@ export const submitAnswer = async (req: Request, res: Response) => {
       hint,
       similarQuestions,
       performanceData,
-      earnedBadges: earnedBadges || [],
+      earnedBadges: earnedBadges || []
     });
   } catch (error: any) {
     console.error('Submit answer error:', error);

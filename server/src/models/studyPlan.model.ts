@@ -19,6 +19,8 @@ export interface IStudyPlan extends Document {
   weeklyGoals: Task[];
   progress: number;
   weakAreas: string[];
+  masteredAreas: string[];
+  strugglingAreas: string[];
   recommendations: Recommendation[];
   completedTopics: string[];
   overallProgress: number;
@@ -80,6 +82,14 @@ const StudyPlanSchema: Schema = new Schema(
     },
     // New fields for enhanced study plan
     weakAreas: {
+      type: [String],
+      default: [],
+    },
+    masteredAreas: {
+      type: [String],
+      default: [],
+    },
+    strugglingAreas: {
       type: [String],
       default: [],
     },

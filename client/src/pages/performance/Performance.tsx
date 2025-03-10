@@ -10,9 +10,10 @@ import {
   Tooltip, 
   Legend, 
   TimeScale,
+  RadialLinearScale,
   ChartOptions
 } from 'chart.js';
-import { Line, Bar } from 'react-chartjs-2';
+import { Line, Bar, Radar } from 'react-chartjs-2';
 import { usePerformance } from '../../context/PerformanceContext';
 
 // Register ChartJS components
@@ -25,7 +26,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  TimeScale
+  TimeScale,
+  RadialLinearScale
 );
 
 const Performance: React.FC = () => {
@@ -38,6 +40,9 @@ const Performance: React.FC = () => {
     scoresTrendBySubject,
     overallAverage,
     totalStudyTime,
+    // Advanced analytics
+    improvementRates,
+    projectedScores,
     fetchPerformanceData
   } = usePerformance();
   
@@ -141,6 +146,129 @@ const Performance: React.FC = () => {
       title: {
         display: true,
         text: 'Total Study Time by Subject',
+      },
+    },
+  };
+
+  // NEW: Projected Scores Chart
+  const projectedScoresData = {
+    labels: Object.keys(projectedScores),
+    datasets: [
+      {
+        label: 'Current Score',
+        data: Object.values(projectedScores).map(scores => scores.current),
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1,
+      },
+      {
+        label: 'Projected (1 Week)',
+        data: Object.values(projectedScores).map(scores => scores.oneWeek),
+        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1,
+      },
+      {
+        label: 'Projected (1 Month)',
+        data: Object.values(projectedScores).map(scores => scores.oneMonth),
+        backgroundColor: 'rgba(153, 102, 255, 0.6)',
+        borderColor: 'rgba(153, 102, 255, 1)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const projectedScoresOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    scales: {
+      y: {
+        title: {
+          display: true,
+          text: 'Score',
+        },
+        min: 0,
+        max: 100,
+      },
+    },
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Current vs Projected Scores',
+      },
+    },
+  };
+
+  // NEW: Improvement Rates Chart
+  const improvementRatesData = {
+    labels: Object.keys(improvementRates),
+    datasets: [
+      {
+        label: 'Weekly Improvement Rate',
+        data: Object.values(improvementRates).map(rate => rate.improvementRate),
+        backgroundColor: Object.keys(improvementRates).map(
+          subject => subjectColors[subject] || 'rgba(0, 0, 0, 0.1)'
+        ),
+        borderColor: Object.keys(improvementRates).map(
+          subject => borderColors[subject] || 'rgba(0, 0, 0, 0.6)'
+        ),
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const improvementRatesOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    scales: {
+      y: {
+        title: {
+          display: true,
+          text: 'Points per Week',
+        },
+      },
+    },
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: true,
+        text: 'Weekly Improvement Rate by Subject',
+      },
+    },
+  };
+
+  // NEW: Performance Radar Chart
+  const radarData = {
+    labels: Object.keys(subjectAverages),
+    datasets: [
+      {
+        label: 'Current Scores',
+        data: Object.values(subjectAverages).map(data => data.averageScore),
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 2,
+        pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+      }
+    ],
+  };
+
+  const radarOptions = {
+    scales: {
+      r: {
+        angleLines: {
+          display: true
+        },
+        suggestedMin: 0,
+        suggestedMax: 100
+      }
+    },
+    plugins: {
+      title: {
+        display: true,
+        text: 'Score Balance by Subject',
       },
     },
   };
@@ -257,7 +385,7 @@ const Performance: React.FC = () => {
         </div>
       </div>
 
-      {/* Charts */}
+      {/* Primary Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Score Trends Line Chart */}
         <div className="bg-white p-6 rounded-lg shadow-md">
@@ -292,6 +420,104 @@ const Performance: React.FC = () => {
             <div className="flex justify-center items-center h-64 text-gray-500">
               <p>No study time data available</p>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* NEW: Advanced Analytics Section */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Advanced Analytics</h2>
+        
+        {/* Projected Scores */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-4">Projected Scores</h2>
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <p>Loading chart data...</p>
+              </div>
+            ) : Object.keys(projectedScores).length > 0 ? (
+              <div className="h-64">
+                <Bar data={projectedScoresData} options={projectedScoresOptions} />
+              </div>
+            ) : (
+              <div className="flex justify-center items-center h-64 text-gray-500">
+                <p>No projection data available</p>
+              </div>
+            )}
+          </div>
+
+          {/* Improvement Rates */}
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-semibold mb-4">Weekly Improvement Rate</h2>
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <p>Loading chart data...</p>
+              </div>
+            ) : Object.keys(improvementRates).length > 0 ? (
+              <div className="h-64">
+                <Bar data={improvementRatesData} options={improvementRatesOptions} />
+              </div>
+            ) : (
+              <div className="flex justify-center items-center h-64 text-gray-500">
+                <p>Not enough data for improvement analysis</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Performance Radar Chart */}
+        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+          <h2 className="text-xl font-semibold mb-4">Performance Balance</h2>
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <p>Loading chart data...</p>
+            </div>
+          ) : Object.keys(subjectAverages).length > 2 ? (
+            <div className="h-80 max-w-2xl mx-auto">
+              <Radar data={radarData} options={radarOptions} />
+            </div>
+          ) : (
+            <div className="flex justify-center items-center h-64 text-gray-500">
+              <p>Need data for at least 3 subjects for radar chart</p>
+            </div>
+          )}
+        </div>
+
+        {/* Projected Score Details Table */}
+        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+          <h2 className="text-xl font-semibold mb-4">Personalized Score Predictions</h2>
+          {Object.keys(projectedScores).length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border px-4 py-2 text-left">Subject</th>
+                    <th className="border px-4 py-2 text-left">Current Score</th>
+                    <th className="border px-4 py-2 text-left">Weekly Improvement</th>
+                    <th className="border px-4 py-2 text-left">Projected 1 Week</th>
+                    <th className="border px-4 py-2 text-left">Projected 1 Month</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(projectedScores).map(([subject, scores]) => (
+                    <tr key={subject} className="hover:bg-gray-50">
+                      <td className="border px-4 py-2">{subject}</td>
+                      <td className="border px-4 py-2">{scores.current}%</td>
+                      <td className="border px-4 py-2">
+                        {improvementRates[subject]?.improvementRate > 0 
+                          ? `+${improvementRates[subject].improvementRate.toFixed(1)} pts/week` 
+                          : `${improvementRates[subject]?.improvementRate.toFixed(1)} pts/week`}
+                      </td>
+                      <td className="border px-4 py-2">{scores.oneWeek}%</td>
+                      <td className="border px-4 py-2">{scores.oneMonth}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">No projection data available</p>
           )}
         </div>
       </div>

@@ -23,15 +23,16 @@ export const getPerformanceData = async (req: Request, res: Response) => {
     const performanceData = await PerformanceData.find(filter).sort({ date: -1 });
 
     // Group by subject and calculate averages
-    const subjectPerformance: Record<string, { scores: number[]; studyTime: number }> = {};
+    const subjectPerformance: Record<string, { scores: number[]; studyTime: number; timestamps: Date[] }> = {};
     
     performanceData.forEach((data) => {
       if (!subjectPerformance[data.subject]) {
-        subjectPerformance[data.subject] = { scores: [], studyTime: 0 };
+        subjectPerformance[data.subject] = { scores: [], studyTime: 0, timestamps: [] };
       }
       
       subjectPerformance[data.subject].scores.push(data.score);
       subjectPerformance[data.subject].studyTime += data.studyTime;
+      subjectPerformance[data.subject].timestamps.push(data.date);
     });
 
     // Calculate average scores
@@ -52,6 +53,7 @@ export const getPerformanceData = async (req: Request, res: Response) => {
 
     // Calculate overall progress
     const allScores = performanceData.map(data => data.score);
+    
     const overallAverage = allScores.length > 0
       ? Math.round(allScores.reduce((acc, score) => acc + score, 0) / allScores.length)
       : 0;
@@ -107,43 +109,112 @@ export const getPerformanceData = async (req: Request, res: Response) => {
       scoresBySubjectAndDate[data.subject][dateStr].count += 1;
     });
 
-    // Convert to array format for chart.js
-    const scoresTrendBySubject = Object.entries(scoresBySubjectAndDate).map(([subject, dateScores]) => {
-      // Get all unique dates across all subjects
-      const allDates = [...new Set(
-        performanceData.map(data => data.date.toISOString().split('T')[0])
-      )].sort();
+    // Calculate daily average for each subject
+    const scoresTrendBySubject: { subject: string; dates: string[]; scores: number[] }[] = [];
+    
+    Object.entries(scoresBySubjectAndDate).forEach(([subject, dateScores]) => {
+      const dates: string[] = [];
+      const scores: number[] = [];
       
-      // For each date, get the average score or null if no data
-      const data = allDates.map(date => {
-        if (dateScores[date]) {
-          return Math.round(dateScores[date].total / dateScores[date].count);
-        }
-        return null; // No data for this date
+      Object.entries(dateScores)
+        .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+        .forEach(([date, { total, count }]) => {
+          dates.push(date);
+          scores.push(Math.round(total / count));
+        });
+      
+      scoresTrendBySubject.push({
+        subject,
+        dates,
+        scores,
+      });
+    });
+
+    // NEW: Calculate improvement rate for each subject
+    const improvementRates: Record<string, { improvementRate: number; correlation: number }> = {};
+    
+    Object.entries(subjectPerformance).forEach(([subject, { scores, timestamps }]) => {
+      if (scores.length < 2) {
+        improvementRates[subject] = { improvementRate: 0, correlation: 0 };
+        return;
+      }
+      
+      // Sort scores by timestamp
+      const sortedData = timestamps.map((date, i) => ({ 
+        timestamp: date.getTime(),
+        score: scores[i]
+      })).sort((a, b) => a.timestamp - b.timestamp);
+      
+      // Calculate linear regression
+      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+      const n = sortedData.length;
+      
+      // Normalize timestamps to days since start
+      const startDay = sortedData[0].timestamp;
+      const normalizedData = sortedData.map(item => ({
+        day: Math.floor((item.timestamp - startDay) / (1000 * 60 * 60 * 24)),
+        score: item.score
+      }));
+      
+      normalizedData.forEach(({ day, score }) => {
+        sumX += day;
+        sumY += score;
+        sumXY += day * score;
+        sumX2 += day * day;
+        sumY2 += score * score;
       });
       
-      return {
-        subject,
-        dates: allDates,
-        scores: data,
+      // Calculate slope (points per day)
+      const slope = n > 1 ? 
+        (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) : 
+        0;
+      
+      // Calculate correlation coefficient
+      const numerator = n * sumXY - sumX * sumY;
+      const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+      const correlation = denominator !== 0 ? numerator / denominator : 0;
+      
+      // Calculate weekly improvement rate (points per week)
+      const weeklyImprovement = slope * 7;
+      
+      improvementRates[subject] = { 
+        improvementRate: parseFloat(weeklyImprovement.toFixed(2)),
+        correlation: parseFloat(correlation.toFixed(2))
       };
     });
 
+    // NEW: Calculate projected scores based on current improvement rate
+    const projectedScores: Record<string, { current: number; oneWeek: number; oneMonth: number }> = {};
+    
+    Object.entries(subjectAverages).forEach(([subject, { averageScore }]) => {
+      const { improvementRate } = improvementRates[subject] || { improvementRate: 0 };
+      
+      // Projected scores (capped at 100)
+      const oneWeek = Math.min(100, Math.round(averageScore + improvementRate));
+      const oneMonth = Math.min(100, Math.round(averageScore + improvementRate * 4));
+      
+      projectedScores[subject] = {
+        current: averageScore,
+        oneWeek,
+        oneMonth
+      };
+    });
+
+    // Send response
     res.status(200).json({
+      rawData: performanceData,
       subjectAverages,
-      overallAverage,
       dailyProgress,
-      examAttempts,
-      totalStudyTime: Object.values(subjectAverages).reduce(
-        (acc, { totalStudyTime }) => acc + totalStudyTime,
-        0
-      ),
       studyTimeBySubject,
+      overallAverage,
+      totalStudyTime: performanceData.reduce((acc, data) => acc + data.studyTime, 0),
       scoresTrendBySubject,
-      rawData: performanceData // Include raw data for custom processing on the client
+      // Advanced analytics
+      improvementRates,
+      projectedScores
     });
   } catch (error: any) {
-    console.error('Get performance data error:', error);
+    console.error('Performance data error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

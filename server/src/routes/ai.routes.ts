@@ -1,8 +1,11 @@
 import express from 'express';
-import { getHint, getExplanation, getRecommendations } from '../controllers/ai.controller';
+import { getHint, getExplanation, getRecommendations, getAiStatus } from '../controllers/ai.controller';
 import { protect } from '../middleware/auth.middleware';
 
 const router = express.Router();
+
+// GET /api/ai/status - Check if AI integration is enabled
+router.get('/status', protect, getAiStatus);
 
 // POST /api/ai/hint - Get a hint for a question
 router.post('/hint', protect, getHint);

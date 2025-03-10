@@ -12,6 +12,11 @@ export interface IUser extends Document {
   badges: mongoose.Types.ObjectId[];
   studyPlan: mongoose.Types.ObjectId;
   performanceData: mongoose.Types.ObjectId[];
+  nextMiniAssessmentDate: Date;
+  notificationSettings: {
+    email: boolean;
+    inApp: boolean;
+  };
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -72,6 +77,24 @@ const UserSchema: Schema = new Schema(
         ref: 'PerformanceData',
       },
     ],
+    nextMiniAssessmentDate: {
+      type: Date,
+      default: () => {
+        const date = new Date();
+        date.setDate(date.getDate() + 14); // 2 weeks from now
+        return date;
+      },
+    },
+    notificationSettings: {
+      email: {
+        type: Boolean,
+        default: true,
+      },
+      inApp: {
+        type: Boolean,
+        default: true,
+      },
+    },
   },
   { timestamps: true }
 );

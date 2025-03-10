@@ -83,6 +83,10 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Study plan not found' });
     }
 
+    // Track if this is a newly completed task
+    let isNewlyCompleted = false;
+    let completedTaskDescription = '';
+
     // Update the task status
     let taskUpdated = false;
     
@@ -93,6 +97,12 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
       );
       
       if (goalIndex !== -1) {
+        // Check if this is a newly completed task
+        if (studyPlan.dailyGoals[goalIndex].status !== 'completed' && status === 'completed') {
+          isNewlyCompleted = true;
+          completedTaskDescription = studyPlan.dailyGoals[goalIndex].task;
+        }
+        
         studyPlan.dailyGoals[goalIndex].status = status;
         taskUpdated = true;
       }
@@ -103,6 +113,12 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
       );
       
       if (goalIndex !== -1) {
+        // Check if this is a newly completed task
+        if (studyPlan.weeklyGoals[goalIndex].status !== 'completed' && status === 'completed') {
+          isNewlyCompleted = true;
+          completedTaskDescription = studyPlan.weeklyGoals[goalIndex].task;
+        }
+        
         studyPlan.weeklyGoals[goalIndex].status = status;
         taskUpdated = true;
       }
@@ -118,19 +134,93 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
       studyPlan.dailyGoals.filter(goal => goal.status === 'completed').length +
       studyPlan.weeklyGoals.filter(goal => goal.status === 'completed').length;
     
-    studyPlan.progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    const newProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    
+    // Check if we hit any progress milestones
+    const progressMilestone = checkProgressMilestone(studyPlan.progress, newProgress);
+    
+    // Update the progress
+    studyPlan.progress = newProgress;
     
     // Save the updated study plan
     await studyPlan.save();
 
+    // Create notification payload
+    const notifications = [];
+    
+    // Add task completion notification
+    if (isNewlyCompleted) {
+      notifications.push({
+        type: 'taskCompleted',
+        message: `You completed: ${completedTaskDescription}`,
+        details: {
+          taskType,
+          task: completedTaskDescription,
+        }
+      });
+    }
+    
+    // Add milestone notification if applicable
+    if (progressMilestone) {
+      notifications.push({
+        type: 'milestone',
+        message: `Congratulations! You've completed ${newProgress}% of your study plan!`,
+        details: {
+          milestone: progressMilestone,
+          progress: newProgress
+        }
+      });
+    }
+
+    // Create notification in the database if enabled
+    try {
+      // Import the notification model
+      const Notification = require('../models/notification.model');
+      
+      // Create notifications in the database
+      for (const notification of notifications) {
+        await Notification.create({
+          userId,
+          type: notification.type,
+          message: notification.message,
+          details: notification.details,
+          read: false,
+          createdAt: new Date()
+        });
+      }
+    } catch (notifError) {
+      // Log but continue if notification creation fails
+      console.error('Failed to create notification:', notifError);
+    }
+
     res.status(200).json({
       message: 'Task status updated successfully',
-      studyPlan
+      studyPlan,
+      notifications
     });
   } catch (error: any) {
     console.error('Update task status error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
+};
+
+/**
+ * Check if a progress update crosses a milestone threshold
+ * @param oldProgress Previous progress percentage
+ * @param newProgress New progress percentage
+ * @returns Milestone reached or null
+ */
+const checkProgressMilestone = (oldProgress: number, newProgress: number): number | null => {
+  const milestones = [25, 50, 75, 100];
+  
+  for (const milestone of milestones) {
+    // Check if we crossed a milestone threshold
+    if (oldProgress < milestone && newProgress >= milestone) {
+      return milestone;
+    }
+  }
+  
+  return null;
 };
 
 // Generate a new study plan
@@ -250,9 +340,20 @@ export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => 
       .filter(([_, average]) => average < 70)
       .map(([subject]) => subject);
 
+    // Identify mastered areas (subjects with average score >= 80%)
+    const masteredAreas = Object.entries(subjectAverages)
+      .filter(([_, average]) => average >= 80)
+      .map(([subject]) => subject);
+
+    // Identify struggling areas (subjects with average score < 50%)
+    const strugglingAreas = Object.entries(subjectAverages)
+      .filter(([_, average]) => average < 50)
+      .map(([subject]) => subject);
+
     // Generate daily and weekly goals based on weak areas and learning style
     const dailyGoals = [];
     const weeklyGoals = [];
+    const recommendations = [];
 
     // Add more practice for weak areas
     weakAreas.forEach((subject) => {
@@ -285,9 +386,67 @@ export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => 
       }
     });
 
-    // Add maintenance for strong areas
+    // Accelerate progress for mastered areas
+    masteredAreas.forEach((subject) => {
+      // Reduced practice for mastered subjects (accelerated pace)
+      dailyGoals.push({
+        task: `Quick review: 5 ${subject} advanced questions`,
+        status: 'pending',
+      });
+      
+      // Add advanced content for mastered subjects
+      weeklyGoals.push({
+        task: `Take 1 advanced ${subject} practice test`,
+        status: 'pending',
+      });
+    });
+
+    // Add additional resources for struggling areas
+    strugglingAreas.forEach((subject) => {
+      dailyGoals.push({
+        task: `Complete ${subject} fundamentals review`,
+        status: 'pending',
+      });
+      
+      // Create recommendation with additional resources
+      recommendations.push({
+        subject,
+        subtopics: ['Fundamentals', 'Basic Concepts'],
+        resources: [
+          `Extra ${subject} practice worksheets`,
+          `${subject} concept maps`,
+          `Interactive ${subject} tutorials`
+        ],
+        priority: 'high',
+      });
+      
+      // Learning style specific supplemental resources
+      if (user.learningStyle === 'visual') {
+        weeklyGoals.push({
+          task: `Study ${subject} visual reference guides`,
+          status: 'pending',
+        });
+      } else if (user.learningStyle === 'auditory') {
+        weeklyGoals.push({
+          task: `Listen to ${subject} concept explanation podcasts`,
+          status: 'pending',
+        });
+      } else if (user.learningStyle === 'kinesthetic') {
+        weeklyGoals.push({
+          task: `Complete hands-on ${subject} practice exercises`,
+          status: 'pending',
+        });
+      } else {
+        weeklyGoals.push({
+          task: `Read simplified ${subject} explanation guides`,
+          status: 'pending',
+        });
+      }
+    });
+
+    // Add maintenance for average-performing areas (not weak, not mastered)
     Object.keys(subjectAverages)
-      .filter((subject) => !weakAreas.includes(subject))
+      .filter((subject) => !weakAreas.includes(subject) && !masteredAreas.includes(subject))
       .forEach((subject) => {
         dailyGoals.push({
           task: `Practice 10 ${subject} questions`,
@@ -311,7 +470,11 @@ export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => 
         {
           dailyGoals,
           weeklyGoals,
+          recommendations: recommendations.length > 0 ? recommendations : existingPlan.recommendations,
           progress: 0,
+          weakAreas,
+          masteredAreas,
+          strugglingAreas
         },
         { new: true }
       );
@@ -320,7 +483,11 @@ export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => 
         userId,
         dailyGoals,
         weeklyGoals,
+        recommendations,
         progress: 0,
+        weakAreas,
+        masteredAreas,
+        strugglingAreas
       });
 
       // Link study plan to user
@@ -330,6 +497,8 @@ export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => 
     res.status(200).json({
       studyPlan,
       weakAreas,
+      masteredAreas,
+      strugglingAreas,
       subjectAverages,
     });
   } catch (error: any) {

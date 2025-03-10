@@ -26,17 +26,40 @@ export const detectLearningStyle = (formatScores: FormatScores): LearningStyle =
   // Calculate effectiveness percentage for each format
   const formatEffectiveness: Record<string, number> = {};
   
+  // Ensure all standard formats have entries
+  const standardFormats = ['text', 'diagram', 'audio', 'video', 'interactive'];
+  standardFormats.forEach(format => {
+    if (!formatScores[format]) {
+      formatScores[format] = { correct: 0, total: 0 };
+    }
+  });
+  
+  // Calculate effectiveness percentages
   Object.entries(formatScores).forEach(([format, { correct, total }]) => {
     // Only consider formats with at least 2 questions answered
     if (total >= 2) {
       formatEffectiveness[format] = (correct / total) * 100;
+    } else if (total > 0) {
+      // If there's at least 1 question, give it a reduced weight
+      formatEffectiveness[format] = (correct / total) * 50; // Half weight for formats with only 1 question
+    } else {
+      formatEffectiveness[format] = 0;
     }
   });
   
   // Find format with highest effectiveness
   // Sort by effectiveness (highest first)
   const sortedFormats = Object.entries(formatEffectiveness)
-    .sort((a, b) => b[1] - a[1]);
+    .sort((a, b) => {
+      const effectivenessDiff = b[1] - a[1];
+      if (Math.abs(effectivenessDiff) < 5) {
+        // If difference is less than 5%, use the one with more questions as a tiebreaker
+        const formatA = a[0];
+        const formatB = b[0];
+        return formatScores[formatB].total - formatScores[formatA].total;
+      }
+      return effectivenessDiff;
+    });
   
   // If no formats have enough questions or all have 0% effectiveness, return default
   if (sortedFormats.length === 0) {
@@ -51,10 +74,15 @@ export const detectLearningStyle = (formatScores: FormatScores): LearningStyle =
     case 'text':
       return 'reading/writing';
     case 'diagram':
+    case 'chart':
+    case 'graph':
       return 'visual';
     case 'audio':
+    case 'verbal':
       return 'auditory';
     case 'video':
+    case 'interactive':
+    case 'simulation':
       return 'kinesthetic';
     default:
       return 'visual'; // Default to visual if format not recognized

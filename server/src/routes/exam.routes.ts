@@ -1,5 +1,5 @@
 import express from 'express';
-import { getExams, getExamById, submitExam, getNextQuestion, createExam } from '../controllers/exam.controller';
+import { getExams, getExamById, submitExam, getNextQuestion, createExam, getExamResults } from '../controllers/exam.controller';
 import { protect } from '../middleware/auth.middleware';
 
 const router = express.Router();
@@ -21,5 +21,8 @@ router.get('/:id/next-question', protect, getNextQuestion);
 
 // POST /api/exams - Create a new exam (admin only)
 router.post('/', protect, createExam);
+
+// GET /api/exams/:id/results - Get detailed exam results
+router.get('/:id/results', protect, getExamResults);
 
 export default router; 

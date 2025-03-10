@@ -38,8 +38,30 @@ interface ExamWithQuestions extends Exam {
 interface ExamResult {
   score: number;
   subjectScores: Record<string, number>;
+  formatScores: Record<string, number>;
+  difficultyScores: Record<string, number>;
   correctCount: number;
   totalQuestions: number;
+  timeBySubject: Record<string, number>;
+  totalTimeSpent: number;
+  averageTimePerQuestion: number;
+  strongestSubject: string | null;
+  weakestSubject: string | null;
+  subjectFormatBreakdown: Record<string, Record<string, { correct: number; total: number }>>;
+  questionDetails: {
+    id: string;
+    subject: string;
+    format: string;
+    difficulty: string;
+    isCorrect: boolean;
+    timeSpent: number;
+    userAnswer: string;
+    correctAnswer: string;
+  }[];
+  examTitle: string;
+  examType: string;
+  examDuration: number;
+  completedAt: string;
 }
 
 interface AnswerResult {
@@ -69,6 +91,7 @@ interface PracticeContextType {
   resetCurrentQuestion: () => void;
   resetExamResult: () => void;
   clearError: () => void;
+  fetchExamDetails: (examId: string) => Promise<void>;
 }
 
 // Create practice context
@@ -188,8 +211,21 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setExamResult({
         score: response.data.score,
         subjectScores: response.data.subjectScores,
+        formatScores: response.data.formatScores,
+        difficultyScores: response.data.difficultyScores,
         correctCount: response.data.correctCount,
         totalQuestions: response.data.totalQuestions,
+        timeBySubject: response.data.timeBySubject,
+        totalTimeSpent: response.data.totalTimeSpent,
+        averageTimePerQuestion: response.data.averageTimePerQuestion,
+        strongestSubject: response.data.strongestSubject,
+        weakestSubject: response.data.weakestSubject,
+        subjectFormatBreakdown: response.data.subjectFormatBreakdown,
+        questionDetails: response.data.questionDetails,
+        examTitle: response.data.examTitle,
+        examType: response.data.examType,
+        examDuration: response.data.examDuration,
+        completedAt: response.data.completedAt,
       });
       
       setCurrentExam(null);
@@ -241,6 +277,47 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setError(null);
   };
 
+  // Fetch detailed exam report
+  const fetchExamDetails = async (examId: string) => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/exams/${examId}/results`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data) {
+        // Update the examResult with detailed data
+        setExamResult({
+          score: response.data.score,
+          subjectScores: response.data.subjectScores,
+          formatScores: response.data.formatScores,
+          difficultyScores: response.data.difficultyScores,
+          correctCount: response.data.correctCount,
+          totalQuestions: response.data.totalQuestions,
+          timeBySubject: response.data.timeBySubject,
+          totalTimeSpent: response.data.totalTimeSpent,
+          averageTimePerQuestion: response.data.averageTimePerQuestion,
+          strongestSubject: response.data.strongestSubject,
+          weakestSubject: response.data.weakestSubject,
+          subjectFormatBreakdown: response.data.subjectFormatBreakdown,
+          questionDetails: response.data.questionDetails,
+          examTitle: response.data.examTitle,
+          examType: response.data.examType,
+          examDuration: response.data.examDuration,
+          completedAt: response.data.completedAt,
+        });
+      }
+      
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to fetch exam details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <PracticeContext.Provider
       value={{
@@ -261,6 +338,7 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         resetCurrentQuestion,
         resetExamResult,
         clearError,
+        fetchExamDetails,
       }}
     >
       {children}

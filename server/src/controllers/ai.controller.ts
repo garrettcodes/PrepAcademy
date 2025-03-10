@@ -1,6 +1,25 @@
 import { Request, Response } from 'express';
 import Question from '../models/question.model';
 import User from '../models/user.model';
+import * as aiService from '../services/ai.service';
+
+// Check if AI integration is enabled
+export const getAiStatus = async (req: Request, res: Response) => {
+  try {
+    // This would check for OpenAI credentials in environment variables
+    // For now, we'll just indicate it's not fully implemented
+    const aiEnabled = process.env.OPENAI_API_KEY !== undefined;
+    
+    res.status(200).json({ 
+      enabled: aiEnabled,
+      provider: aiEnabled ? 'OpenAI' : 'Static',
+      availableModels: aiEnabled ? ['gpt-3.5-turbo', 'gpt-4'] : []
+    });
+  } catch (error: any) {
+    console.error('Get AI status error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 // Get a hint for a question
 export const getHint = async (req: Request, res: Response) => {
@@ -19,8 +38,8 @@ export const getHint = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'No hints available for this question' });
     }
 
-    // Get the requested hint or the first one if index is out of bounds
-    const hint = question.hints[hintIndex] || question.hints[0];
+    // Get hint using AI service
+    const hint = await aiService.generateHint(question, hintIndex);
 
     res.status(200).json({ hint });
   } catch (error: any) {
@@ -49,17 +68,8 @@ export const getExplanation = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Get appropriate explanation based on user's learning style
-    let explanation = question.explanations.text; // Default to text explanation
-    
-    if (user.learningStyle && question.explanations[user.learningStyle]) {
-      explanation = question.explanations[user.learningStyle];
-    }
-
-    // If no explanation is available, provide a generic one
-    if (!explanation) {
-      explanation = `The correct answer is ${question.correctAnswer}. Please review the question and try again.`;
-    }
+    // Get explanation using AI service
+    const explanation = await aiService.generateExplanation(question, user);
 
     res.status(200).json({ explanation });
   } catch (error: any) {
@@ -81,71 +91,8 @@ export const getRecommendations = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Build recommendations based on learning style
-    const recommendations = [];
-    
-    if (subject) {
-      // Subject-specific recommendations
-      if (user.learningStyle === 'visual') {
-        recommendations.push(
-          `Watch video tutorials on ${subject}`,
-          `Study diagrams and charts related to ${subject}`,
-          `Create mind maps for ${subject} concepts`
-        );
-      } else if (user.learningStyle === 'auditory') {
-        recommendations.push(
-          `Listen to audio lectures on ${subject}`,
-          `Participate in group discussions about ${subject}`,
-          `Record yourself explaining ${subject} concepts and listen back`
-        );
-      } else if (user.learningStyle === 'kinesthetic') {
-        recommendations.push(
-          `Practice hands-on exercises for ${subject}`,
-          `Use flashcards for ${subject} terms`,
-          `Teach ${subject} concepts to someone else`
-        );
-      } else {
-        recommendations.push(
-          `Read textbook chapters on ${subject}`,
-          `Take detailed notes on ${subject}`,
-          `Write summaries of ${subject} concepts`
-        );
-      }
-    } else {
-      // General recommendations
-      if (user.learningStyle === 'visual') {
-        recommendations.push(
-          'Watch video tutorials',
-          'Study diagrams and charts',
-          'Create mind maps for key concepts'
-        );
-      } else if (user.learningStyle === 'auditory') {
-        recommendations.push(
-          'Listen to audio lectures',
-          'Participate in group discussions',
-          'Record yourself explaining concepts and listen back'
-        );
-      } else if (user.learningStyle === 'kinesthetic') {
-        recommendations.push(
-          'Practice hands-on exercises',
-          'Use flashcards for terms',
-          'Teach concepts to someone else'
-        );
-      } else {
-        recommendations.push(
-          'Read textbook chapters',
-          'Take detailed notes',
-          'Write summaries of concepts'
-        );
-      }
-    }
-
-    // Add general test-taking strategies
-    recommendations.push(
-      'Practice time management during exams',
-      'Review mistakes from previous practice tests',
-      'Take regular breaks during study sessions'
-    );
+    // Get recommendations using AI service
+    const recommendations = await aiService.generateRecommendations(user, subject);
 
     res.status(200).json({ recommendations });
   } catch (error: any) {
