@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import User, { IUser } from '../models/user.model';
 import { generateToken } from '../utils/jwt';
+import { initializeOnboarding } from './onboarding.controller';
 
 // Register a new user
 export const register = async (req: Request, res: Response) => {
@@ -21,9 +22,13 @@ export const register = async (req: Request, res: Response) => {
       learningStyle: learningStyle || 'visual',
       targetScore: targetScore || 0,
       testDate: testDate || Date.now(),
+      onboardingCompleted: false, // Set initial onboarding status
     });
 
     if (user) {
+      // Initialize onboarding for the new user
+      await initializeOnboarding(user._id.toString());
+      
       // Generate JWT token
       const token = generateToken(user);
 
@@ -34,6 +39,7 @@ export const register = async (req: Request, res: Response) => {
         learningStyle: user.learningStyle,
         targetScore: user.targetScore,
         testDate: user.testDate,
+        onboardingCompleted: user.onboardingCompleted,
         token,
       });
     } else {
@@ -72,6 +78,7 @@ export const login = async (req: Request, res: Response) => {
       learningStyle: user.learningStyle,
       targetScore: user.targetScore,
       testDate: user.testDate,
+      onboardingCompleted: user.onboardingCompleted,
       token,
     });
   } catch (error: any) {

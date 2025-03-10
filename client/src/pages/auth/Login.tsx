@@ -103,21 +103,25 @@ const Login: React.FC = () => {
             </div>
           </form>
           
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+          <div className="mt-6 flex items-center justify-between">
+            <div className="text-sm">
               <Link to="/register" className="font-medium text-primary hover:text-primary-dark">
-                Sign up
+                Don't have an account?
               </Link>
-            </p>
+            </div>
+            <div className="text-sm">
+              <Link to="#" className="font-medium text-primary hover:text-primary-dark">
+                Forgot password?
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+            <Link to="/parent/login" className="text-sm font-medium text-primary hover:text-primary-dark">
+              Parent/Guardian Portal
+            </Link>
           </div>
         </Card>
-        
-        <div className="mt-6 text-center">
-          <Link to="/" className="text-sm text-gray-600 hover:text-gray-900">
-            ← Back to home
-          </Link>
-        </div>
       </div>
     </div>
   );

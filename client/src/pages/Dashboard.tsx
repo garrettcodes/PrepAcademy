@@ -1,18 +1,31 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStudy } from '../context/StudyContext';
 import { usePractice } from '../context/PracticeContext';
 import { usePerformance } from '../context/PerformanceContext';
+import { useOnboarding } from '../context/OnboardingContext';
 import PointsBadge from '../components/ui/PointsBadge';
 import PerformanceChart from '../components/charts/PerformanceChart';
 import Badge from '../components/ui/Badge';
+import LeaderboardWidget from '../components/ui/LeaderboardWidget';
+import ChallengeWidget from '../components/ui/ChallengeWidget';
+import StressManagementWidget from '../components/ui/StressManagementWidget';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { user, miniAssessmentDue, nextMiniAssessmentDate } = useAuth();
   const { studyPlan, fetchStudyPlan, loading: studyLoading } = useStudy();
   const { fetchExams, exams, loading: examLoading } = usePractice();
   const { fetchPerformanceSummary, performanceSummary, loading: performanceLoading } = usePerformance();
+  const { isOnboardingCompleted, isLoading: onboardingLoading } = useOnboarding();
+
+  // Check onboarding status and redirect if not completed
+  useEffect(() => {
+    if (!onboardingLoading && !isOnboardingCompleted) {
+      navigate('/onboarding');
+    }
+  }, [isOnboardingCompleted, onboardingLoading, navigate]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -32,6 +45,15 @@ const Dashboard: React.FC = () => {
     
     return diffDays;
   };
+
+  // If onboarding is still loading or not completed, show loading state
+  if (onboardingLoading || (!onboardingLoading && !isOnboardingCompleted)) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-12">
@@ -192,6 +214,13 @@ const Dashboard: React.FC = () => {
               </Link>
             </div>
           )}
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          <LeaderboardWidget />
+          <ChallengeWidget />
+          <StressManagementWidget />
         </div>
 
         {/* Recent performance */}

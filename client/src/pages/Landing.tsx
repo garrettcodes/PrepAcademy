@@ -36,6 +36,11 @@ const Landing: React.FC = () => {
                 </>
               )}
             </div>
+            <div className="mt-4 text-center md:text-left">
+              <Link to="/parent/login" className="text-white hover:text-blue-100 underline">
+                Parent/Guardian Portal
+              </Link>
+            </div>
           </div>
         </div>
         {/* Decorative wave */}

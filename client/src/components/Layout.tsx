@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PointsBadge from './ui/PointsBadge';
+import OfflineIndicator from './ui/OfflineIndicator';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -21,6 +22,11 @@ const Layout: React.FC = () => {
   // Check if a given route is active
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  // Check if user has admin or expert role
+  const isAdminOrExpert = () => {
+    return user && (user.role === 'admin' || user.role === 'expert');
   };
 
   return (
@@ -93,6 +99,43 @@ const Layout: React.FC = () => {
                 >
                   Performance
                 </Link>
+
+                {/* New Social Features Links */}
+                <Link
+                  to="/study-groups"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    location.pathname.startsWith('/study-groups')
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Study Groups
+                </Link>
+                
+                <Link
+                  to="/shared-notes"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    location.pathname.startsWith('/shared-notes')
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Notes
+                </Link>
+
+                {/* Admin link - only shown to admins and experts */}
+                {isAdminOrExpert() && (
+                  <Link
+                    to="/admin/dashboard"
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      location.pathname.startsWith('/admin')
+                        ? 'bg-purple-600 text-white'
+                        : 'text-purple-700 hover:bg-purple-100'
+                    }`}
+                  >
+                    Admin Panel
+                  </Link>
+                )}
               </nav>
             </div>
             
@@ -118,6 +161,32 @@ const Layout: React.FC = () => {
                       >
                         Your Profile
                       </Link>
+                      {/* Feedback Link */}
+                      <Link 
+                        to="/feedback" 
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={closeMobileMenu}
+                      >
+                        Feedback Center
+                      </Link>
+                      {isAdminOrExpert() && (
+                        <>
+                          <Link 
+                            to="/admin/dashboard" 
+                            className="block px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
+                            onClick={closeMobileMenu}
+                          >
+                            Admin Dashboard
+                          </Link>
+                          <Link 
+                            to="/admin/feedback" 
+                            className="block px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
+                            onClick={closeMobileMenu}
+                          >
+                            Manage Feedback
+                          </Link>
+                        </>
+                      )}
                       <button
                         onClick={logout}
                         className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -228,6 +297,68 @@ const Layout: React.FC = () => {
                 Performance
               </Link>
               
+              {/* New Social Features Mobile Links */}
+              <Link
+                to="/study-groups"
+                onClick={closeMobileMenu}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname.startsWith('/study-groups')
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Study Groups
+              </Link>
+              
+              <Link
+                to="/shared-notes"
+                onClick={closeMobileMenu}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname.startsWith('/shared-notes')
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Notes
+              </Link>
+              
+              {/* Feedback Link for Mobile */}
+              <Link
+                to="/feedback"
+                onClick={closeMobileMenu}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname.startsWith('/feedback')
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Feedback Center
+              </Link>
+              
+              {/* Admin link in mobile menu - only shown to admins and experts */}
+              {isAdminOrExpert() && (
+                <>
+                  <Link
+                    to="/admin/dashboard"
+                    onClick={closeMobileMenu}
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      location.pathname.startsWith('/admin')
+                        ? 'bg-purple-600 text-white'
+                        : 'text-purple-700 hover:bg-purple-100'
+                    }`}
+                  >
+                    Admin Panel
+                  </Link>
+                  <Link
+                    to="/admin/feedback"
+                    onClick={closeMobileMenu}
+                    className={`block px-3 py-2 rounded-md text-base font-medium text-purple-700 hover:bg-purple-100`}
+                  >
+                    Manage Feedback
+                  </Link>
+                </>
+              )}
+              
               <button
                 onClick={logout}
                 className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
@@ -245,6 +376,9 @@ const Layout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+      
+      {/* Offline indicator */}
+      <OfflineIndicator />
       
       {/* Footer */}
       <footer className="bg-white shadow-inner py-4">

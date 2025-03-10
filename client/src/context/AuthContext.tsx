@@ -22,6 +22,7 @@ interface User {
     category: string;
   }>;
   token: string;
+  onboardingCompleted: boolean;
 }
 
 // Define auth context interface
@@ -92,7 +93,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set default axios auth header
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-      navigate('/dashboard');
+      // For new users, redirect to onboarding instead of dashboard
+      navigate('/onboarding');
     } catch (err: any) {
       setError(err.response?.data?.message || 'An error occurred during registration');
     } finally {
@@ -121,7 +123,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set default axios auth header
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-      navigate('/dashboard');
+      // Check if the user has completed onboarding
+      // If onboardingCompleted is false, redirect to onboarding
+      if (loggedInUser.onboardingCompleted === false) {
+        navigate('/onboarding');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
     } finally {
