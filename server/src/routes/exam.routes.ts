@@ -1,28 +1,48 @@
-import express from 'express';
-import { getExams, getExamById, submitExam, getNextQuestion, createExam, getExamResults } from '../controllers/exam.controller';
-import { protect } from '../middleware/auth.middleware';
+import { Router } from 'express';
+import * as examController from '../controllers/exam.controller';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { checkTrialMiddleware, checkSubscriptionMiddleware } from '../middleware/subscription.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// GET /api/exams - Get all available exams
-router.get('/', protect, getExams);
+// All routes require authentication
+router.use(authMiddleware);
 
-// GET /api/exams/:id - Get a specific exam with questions
-router.get('/:id', protect, getExamById);
+// Routes accessible during trial period
+// Get basic/sample exams (limited content for trial users)
+router.get('/basic', checkTrialMiddleware, examController.getBasicExams);
 
-// POST /api/exams/:id/submit - Submit an exam
-router.post('/:id/submit', protect, submitExam);
+// Get a specific basic exam
+router.get('/basic/:examId', checkTrialMiddleware, examController.getBasicExamById);
 
-// POST /api/exams/next-question - Get next question for adaptive exam
-router.post('/next-question', protect, getNextQuestion);
+// Start a basic exam
+router.post('/basic/:examId/start', checkTrialMiddleware, examController.startBasicExam);
 
-// GET /api/exams/:id/next-question - Get next question for an exam with adaptive difficulty
-router.get('/:id/next-question', protect, getNextQuestion);
+// Submit a basic exam
+router.post('/basic/:examId/submit', checkTrialMiddleware, examController.submitBasicExam);
 
-// POST /api/exams - Create a new exam (admin only)
-router.post('/', protect, createExam);
+// Premium features - require active subscription
+// Get all full practice exams
+router.get('/full', checkSubscriptionMiddleware, examController.getFullExams);
 
-// GET /api/exams/:id/results - Get detailed exam results
-router.get('/:id/results', protect, getExamResults);
+// Get a specific full practice exam
+router.get('/full/:examId', checkSubscriptionMiddleware, examController.getFullExamById);
+
+// Start a full practice exam
+router.post('/full/:examId/start', checkSubscriptionMiddleware, examController.startFullExam);
+
+// Submit a full practice exam
+router.post('/full/:examId/submit', checkSubscriptionMiddleware, examController.submitFullExam);
+
+// Get detailed exam results with performance analytics
+router.get('/results/:attemptId', checkSubscriptionMiddleware, examController.getExamResults);
+
+// Get user's exam history with analytics
+router.get('/user/history', checkSubscriptionMiddleware, examController.getUserExamHistory);
+
+// Admin routes
+router.post('/', authMiddleware, examController.createExam);
+router.put('/:examId', authMiddleware, examController.updateExam);
+router.delete('/:examId', authMiddleware, examController.deleteExam);
 
 export default router; 

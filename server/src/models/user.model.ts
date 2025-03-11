@@ -31,6 +31,11 @@ export interface IUser extends Document {
     };
   };
   onboardingCompleted: boolean;
+  subscriptionStatus: string;
+  currentSubscription: mongoose.Types.ObjectId;
+  subscriptionHistory: mongoose.Types.ObjectId[];
+  trialStartDate: Date;
+  trialEndDate: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
   getDecryptedField(field: string): string;
   setEncryptedField(field: string, value: string): void;
@@ -155,6 +160,30 @@ const UserSchema: Schema = new Schema(
       type: Boolean,
       default: false,
     },
+    subscriptionStatus: {
+      type: String,
+      enum: ['none', 'trial', 'active', 'canceled', 'expired'],
+      default: 'none',
+    },
+    currentSubscription: {
+      type: Schema.Types.ObjectId,
+      ref: 'Subscription',
+      default: null,
+    },
+    subscriptionHistory: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Subscription',
+      },
+    ],
+    trialStartDate: {
+      type: Date,
+      default: null,
+    },
+    trialEndDate: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -172,6 +201,19 @@ UserSchema.pre<IUser>('save', async function (next) {
   } catch (error: any) {
     next(error);
   }
+});
+
+// Set trial dates for new users
+UserSchema.pre<IUser>('save', function (next) {
+  if (this.isNew && !this.trialStartDate) {
+    this.subscriptionStatus = 'trial';
+    this.trialStartDate = new Date();
+    
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 7); // 7-day trial
+    this.trialEndDate = trialEndDate;
+  }
+  next();
 });
 
 // Encrypt sensitive data before saving

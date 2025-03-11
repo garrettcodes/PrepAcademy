@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStudy } from '../context/StudyContext';
 import { usePractice } from '../context/PracticeContext';
 import { usePerformance } from '../context/PerformanceContext';
 import { useOnboarding } from '../context/OnboardingContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import PointsBadge from '../components/ui/PointsBadge';
 import PerformanceChart from '../components/charts/PerformanceChart';
 import Badge from '../components/ui/Badge';
@@ -14,11 +15,31 @@ import StressManagementWidget from '../components/ui/StressManagementWidget';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, miniAssessmentDue, nextMiniAssessmentDate } = useAuth();
   const { studyPlan, fetchStudyPlan, loading: studyLoading } = useStudy();
   const { fetchExams, exams, loading: examLoading } = usePractice();
   const { fetchPerformanceSummary, performanceSummary, loading: performanceLoading } = usePerformance();
   const { isOnboardingCompleted, isLoading: onboardingLoading } = useOnboarding();
+  const { subscriptionStatus, isSubscribed, isTrialActive, trialDaysLeft, isLoading: subscriptionLoading } = useSubscription();
+  const [showSubscriptionSuccess, setShowSubscriptionSuccess] = useState<boolean>(false);
+
+  // Check for subscription success message from URL
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    if (queryParams.get('subscription') === 'success') {
+      setShowSubscriptionSuccess(true);
+      // Clear the query parameter
+      navigate(location.pathname, { replace: true });
+      
+      // Hide the success message after 5 seconds
+      const timer = setTimeout(() => {
+        setShowSubscriptionSuccess(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location.search, navigate, location.pathname]);
 
   // Check onboarding status and redirect if not completed
   useEffect(() => {
@@ -56,56 +77,92 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="pb-12">
-      {/* Welcome section */}
-      <div className="bg-white shadow-sm rounded-lg mb-8 p-6">
-        <div className="md:flex md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Welcome back, {user?.name}!
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Here's an overview of your test preparation progress
-            </p>
-          </div>
-          
-          {getDaysUntilTest() && (
-            <div className="mt-4 md:mt-0">
-              <Badge 
-                name={`${getDaysUntilTest()} days until your test`}
-                description=""
-                icon="calendar"
-                size="md" 
-              />
-            </div>
-          )}
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.name}!</h1>
+          <p className="text-gray-600 mt-1">
+            {getDaysUntilTest() ? `${getDaysUntilTest()} days until your exam` : 'Set your exam date in settings'}
+          </p>
+        </div>
+        <div className="mt-4 md:mt-0">
+          <PointsBadge points={user?.points || 0} />
         </div>
       </div>
-      
-      {/* Mini-Assessment Alert */}
-      {miniAssessmentDue && (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-md">
+
+      {/* Subscription Success Message */}
+      {showSubscriptionSuccess && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
           <div className="flex">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm text-blue-700">
-                Your bi-weekly learning style assessment is now available.
-                <Link to="/mini-assessment" className="font-medium underline ml-1">
-                  Take it now
-                </Link>
+              <p className="text-sm text-green-700">
+                Your subscription was successful! You now have full access to all premium features.
               </p>
             </div>
           </div>
         </div>
       )}
-      
-      {!miniAssessmentDue && nextMiniAssessmentDate && (
-        <div className="text-sm text-gray-500 mb-6 bg-white p-3 rounded-lg shadow-sm border border-gray-100">
-          Next learning style assessment: {new Date(nextMiniAssessmentDate).toLocaleDateString()}
+
+      {/* Subscription Status Card */}
+      {!subscriptionLoading && (
+        <div className="bg-white shadow-md rounded-lg p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">Subscription Status</h2>
+              <div className="mt-2">
+                {isSubscribed && (
+                  <div className="flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">
+                      Active
+                    </span>
+                    <p className="text-sm text-gray-600">You have full access to all premium features.</p>
+                  </div>
+                )}
+                
+                {isTrialActive && (
+                  <div className="flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-2">
+                      Trial
+                    </span>
+                    <p className="text-sm text-gray-600">
+                      You have {trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left in your free trial.
+                    </p>
+                  </div>
+                )}
+                
+                {!isSubscribed && !isTrialActive && (
+                  <div className="flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mr-2">
+                      {subscriptionStatus === 'canceled' ? 'Canceled' : 'Inactive'}
+                    </span>
+                    <p className="text-sm text-gray-600">Some features may be limited. Subscribe to unlock all features.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              {isSubscribed || isTrialActive ? (
+                <Link
+                  to="/subscription/manage"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Manage Subscription
+                </Link>
+              ) : (
+                <Link
+                  to="/pricing"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  View Plans
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

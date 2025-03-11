@@ -7,6 +7,9 @@ import cron from 'node-cron';
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { secureCookieSettings, csrfProtection } from './middleware/auth.middleware';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -31,10 +34,17 @@ import onboardingRoutes from './routes/onboarding.routes';
 import studyGroupRoutes from './routes/studyGroup.routes';
 import sharedNoteRoutes from './routes/sharedNote.routes';
 import feedbackRoutes from './routes/feedback.routes';
+import subscriptionRoutes from './routes/subscription.routes';
+import payoutRoutes from './routes/payout.routes';
 
 // Import mini-assessment notification function
 import { checkAndNotifyDueMiniAssessments } from './controllers/miniAssessment.controller';
 import { updateAllLeaderboards } from './controllers/leaderboard.controller';
+import { checkSubscriptionStatuses } from './controllers/subscription.controller';
+import { initializePayoutSchedule } from './controllers/payout.controller';
+
+// Import subscription jobs
+import { scheduleSubscriptionJobs } from './jobs/subscriptionJobs';
 
 // Load environment variables
 dotenv.config();
@@ -43,10 +53,46 @@ dotenv.config();
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Security middleware
+// Apply helmet to secure HTTP headers
+app.use(helmet());
+
+// Secure cookie settings
+app.use(secureCookieSettings);
+
+// CSRF protection
+app.use(csrfProtection);
+
+// Apply rate limiting - basic configuration
+const globalRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // Limit each IP to 500 requests per window
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+
+// Apply to all requests
+app.use(globalRateLimiter);
+
+// More strict rate limiter for authentication endpoints
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many login attempts from this IP, please try again after 15 minutes'
+});
+
+// General middleware
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
+
+// Apply auth rate limiter to login and register routes
+app.use('/api/auth/login', authRateLimiter);
+app.use('/api/auth/register', authRateLimiter);
+app.use('/api/parents/login', authRateLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -71,6 +117,11 @@ app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/study-groups', studyGroupRoutes);
 app.use('/api/shared-notes', sharedNoteRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/payouts', payoutRoutes);
+
+// Special route for Stripe webhook - needs raw body
+app.use('/api/subscriptions/webhook', express.raw({ type: 'application/json' }));
 
 // Default route
 app.get('/', (req: Request, res: Response) => {
@@ -99,6 +150,8 @@ mongoose
         httpsServer.listen(PORT, () => {
           console.log(`HTTPS Server running on port ${PORT}`);
           runScheduledTasks();
+          // Schedule subscription jobs
+          scheduleSubscriptionJobs();
         });
       } catch (error) {
         console.error('Error starting HTTPS server:', error);
@@ -145,6 +198,21 @@ function runScheduledTasks() {
       console.error('Error running scheduled leaderboard update:', error);
     }
   });
+  
+  // Check subscription statuses every hour
+  cron.schedule('0 * * * *', async () => {
+    console.log('Checking subscription statuses...');
+    try {
+      await checkSubscriptionStatuses();
+    } catch (error) {
+      console.error('Error checking subscription statuses:', error);
+    }
+  });
+  
+  // Initialize the payout schedule on server start
+  initializePayoutSchedule()
+    .then(() => console.log('Payout schedule initialized'))
+    .catch(error => console.error('Error initializing payout schedule:', error));
   
   // Also run an initial check when the server starts
   checkAndNotifyDueMiniAssessments()

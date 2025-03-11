@@ -1,37 +1,42 @@
-import express from 'express';
-import { authenticate } from '../middleware/auth';
+import { Router } from 'express';
 import * as sharedNoteController from '../controllers/sharedNote.controller';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { checkSubscriptionMiddleware } from '../middleware/subscription.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// Shared notes routes (all require authentication)
-router.use(authenticate);
+// All shared note routes require authentication and an active subscription
+router.use(authMiddleware);
+router.use(checkSubscriptionMiddleware);
 
 // Create a new shared note
 router.post('/', sharedNoteController.createSharedNote);
 
-// Get all public shared notes
+// Get public shared notes
 router.get('/public', sharedNoteController.getPublicSharedNotes);
 
-// Get all notes shared in a study group
+// Get user's shared notes
+router.get('/my-notes', sharedNoteController.getUserSharedNotes);
+
+// Get notes for a specific study group
 router.get('/group/:groupId', sharedNoteController.getGroupSharedNotes);
 
-// Get user's own notes
-router.get('/my-notes', sharedNoteController.getUserNotes);
-
-// Get a single note by ID
+// Get a specific shared note
 router.get('/:noteId', sharedNoteController.getSharedNote);
 
-// Update a note
+// Update a shared note
 router.put('/:noteId', sharedNoteController.updateSharedNote);
 
-// Delete a note
+// Delete a shared note
 router.delete('/:noteId', sharedNoteController.deleteSharedNote);
 
-// Add a comment to a note
-router.post('/:noteId/comments', sharedNoteController.addComment);
+// Vote on a shared note
+router.post('/:noteId/vote', sharedNoteController.voteOnSharedNote);
 
-// Vote on a note (upvote or downvote)
-router.post('/:noteId/vote', sharedNoteController.voteOnNote);
+// Add comment to a shared note
+router.post('/:noteId/comments', sharedNoteController.addCommentToSharedNote);
+
+// Remove comment from a shared note
+router.delete('/:noteId/comments/:commentId', sharedNoteController.removeCommentFromSharedNote);
 
 export default router; 

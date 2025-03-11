@@ -132,4 +132,34 @@ export const authorizeExpertise = (subject: string) => {
 export const admin = authorize('admin');
 
 // Expert middleware (shorthand for authorize('expert', 'admin'))
-export const expert = authorize('expert', 'admin'); 
+export const expert = authorize('expert', 'admin');
+
+// Middleware to set secure cookie options
+export const secureCookieSettings = (req: Request, res: Response, next: NextFunction) => {
+  // Set secure cookie defaults
+  res.cookie = (name: string, value: string, options = {}) => {
+    const secureOptions = {
+      httpOnly: true, // Prevents JavaScript from reading cookie
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict' as const, // Prevents CSRF attacks
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      ...options
+    };
+    
+    // Call the original cookie function with secure defaults
+    return (res as any).cookie(name, value, secureOptions);
+  };
+  
+  next();
+};
+
+// Content Security Policy middleware
+export const csrfProtection = (req: Request, res: Response, next: NextFunction) => {
+  // Generate a CSRF token for each request if it doesn't exist
+  if (!req.headers['x-csrf-token']) {
+    const csrfToken = require('crypto').randomBytes(16).toString('hex');
+    res.setHeader('X-CSRF-Token', csrfToken);
+  }
+  
+  next();
+}; 

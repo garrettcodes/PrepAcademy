@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import User, { IUser } from '../models/user.model';
-import { generateToken } from '../utils/jwt';
+import { generateToken, generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { initializeOnboarding } from './onboarding.controller';
 
 // Register a new user
@@ -68,8 +68,9 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Generate JWT token
-    const token = generateToken(user);
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
 
     res.status(200).json({
       _id: user._id,
@@ -79,7 +80,9 @@ export const login = async (req: Request, res: Response) => {
       targetScore: user.targetScore,
       testDate: user.testDate,
       onboardingCompleted: user.onboardingCompleted,
-      token,
+      accessToken, // Now sending accessToken instead of token
+      refreshToken, // Also sending refreshToken
+      tokenType: 'Bearer',
     });
   } catch (error: any) {
     console.error('Login error:', error);
@@ -108,5 +111,40 @@ export const getCurrentUser = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Get current user error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Refresh access token
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(400).json({ message: 'Refresh token is required' });
+    }
+    
+    // Verify refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+    
+    if (!decoded.userId || decoded.tokenType !== 'refresh') {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+    
+    // Get user from database
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Generate new access token
+    const accessToken = generateAccessToken(user, decoded.userType);
+    
+    res.status(200).json({
+      accessToken,
+      message: 'Token refreshed successfully'
+    });
+  } catch (error: any) {
+    console.error('Token refresh error:', error);
+    res.status(401).json({ message: 'Invalid refresh token', error: error.message });
   }
 }; 

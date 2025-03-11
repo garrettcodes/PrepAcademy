@@ -13,6 +13,7 @@ import { ChallengeProvider } from './context/ChallengeContext';
 import { OfflineProvider } from './context/OfflineContext';
 import { StressManagementProvider } from './context/StressManagementContext';
 import { OnboardingProvider } from './context/OnboardingContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import Dashboard from './pages/Dashboard';
 import DiagnosticTest from './pages/diagnostic/DiagnosticTest';
 import MiniAssessment from './pages/diagnostic/MiniAssessment';
@@ -49,6 +50,11 @@ import StudyGroupDetailPage from './pages/social/StudyGroupDetailPage';
 import SharedNotes from './pages/social/SharedNotes';
 import FeedbackPage from './pages/feedback/FeedbackPage';
 import AdminFeedbackPage from './pages/admin/AdminFeedbackPage';
+
+// Subscription Pages
+import PricingPage from './pages/subscription/PricingPage';
+import SubscriptionSuccessPage from './pages/subscription/SubscriptionSuccessPage';
+import ManageSubscriptionPage from './pages/subscription/ManageSubscriptionPage';
 
 // Define an interface for the User type that includes the role property
 interface UserWithRole {
@@ -99,7 +105,9 @@ const App: React.FC = () => {
                           <ChallengeProvider>
                             <StressManagementProvider>
                               <OnboardingProvider>
-                                <AppContent />
+                                <SubscriptionProvider>
+                                  <AppContent />
+                                </SubscriptionProvider>
                               </OnboardingProvider>
                             </StressManagementProvider>
                           </ChallengeProvider>
@@ -158,6 +166,20 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        
+        {/* Subscription Routes */}
+        <Route path="/subscription/success" element={<SubscriptionSuccessPage />} />
+        <Route path="/subscription/manage" element={
+          <PrivateRoute>
+            <ManageSubscriptionPage />
+          </PrivateRoute>
+        } />
+        <Route path="/subscription/cancel" element={
+          <PrivateRoute>
+            <Navigate to="/pricing?canceled=true" />
+          </PrivateRoute>
+        } />
         
         {/* Parent Portal Routes */}
         <Route path="/parent/login" element={<ParentLogin />} />

@@ -1,28 +1,33 @@
-import express from 'express';
-import { 
-  getQuestions, 
-  submitAnswer, 
-  createQuestion, 
-  getQuestionHint,
-  getQuestionExplanation
-} from '../controllers/question.controller';
-import { protect } from '../middleware/auth.middleware';
+import { Router } from 'express';
+import * as questionController from '../controllers/question.controller';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { checkTrialMiddleware, checkSubscriptionMiddleware } from '../middleware/subscription.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// GET /api/questions - Get practice questions
-router.get('/', protect, getQuestions);
+// All routes require authentication
+router.use(authMiddleware);
 
-// POST /api/questions/answer - Submit answer for a question
-router.post('/answer', protect, submitAnswer);
+// Routes accessible during trial period
+// Get limited practice questions (trial users get limited questions)
+router.get('/practice', checkTrialMiddleware, questionController.getPracticeQuestions);
 
-// POST /api/questions - Create a new question (admin only)
-router.post('/', protect, createQuestion);
+// Get a specific question
+router.get('/:questionId', checkTrialMiddleware, questionController.getQuestionById);
 
-// GET /api/questions/:questionId/hint - Get a hint for a question
-router.get('/:questionId/hint', protect, getQuestionHint);
+// Submit an answer to a question
+router.post('/:questionId/answer', checkTrialMiddleware, questionController.submitAnswer);
 
-// GET /api/questions/:questionId/explanation - Get an explanation for a question
-router.get('/:questionId/explanation', protect, getQuestionExplanation);
+// Premium features - require active subscription (not available during trial)
+// Get unlimited practice questions
+router.get('/unlimited', checkSubscriptionMiddleware, questionController.getUnlimitedQuestions);
+
+// Get detailed analytics for questions
+router.get('/analytics', checkSubscriptionMiddleware, questionController.getQuestionAnalytics);
+
+// Admin routes
+router.post('/', authMiddleware, questionController.createQuestion);
+router.put('/:questionId', authMiddleware, questionController.updateQuestion);
+router.delete('/:questionId', authMiddleware, questionController.deleteQuestion);
 
 export default router; 
