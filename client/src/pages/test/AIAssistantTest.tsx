@@ -6,8 +6,25 @@ import axios from 'axios';
 // API URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Mock question for testing
-const MOCK_QUESTIONS = [
+// Mock question interface
+interface MockQuestion {
+  _id: string;
+  text: string;
+  options: string[];
+  correctAnswer: string;
+  subject: string;
+  difficulty: string;
+  hints: string[];
+  explanations: {
+    text: string;
+    visual: string;
+    auditory: string;
+    kinesthetic: string;
+  };
+}
+
+// Mock questions for testing
+const MOCK_QUESTIONS: MockQuestion[] = [
   {
     _id: '1',
     text: 'What is the quadratic formula?',
@@ -24,7 +41,7 @@ const MOCK_QUESTIONS = [
     explanations: {
       text: 'The quadratic formula x = (-b ± √(b² - 4ac)) / 2a is used to solve quadratic equations of the form ax² + bx + c = 0.',
       visual: 'The quadratic formula can be visualized as finding the x-intercepts of a parabola on a graph. The discriminant (b² - 4ac) tells us how many solutions exist: if positive, there are two solutions; if zero, one solution; if negative, no real solutions.',
-      auditory: 'The quadratic formula sounds like: "Negative b plus or minus the square root of b squared minus four a c, all divided by two a." It's like a recipe - you put in the values of a, b, and c, and get the solutions for x.',
+      auditory: 'The quadratic formula sounds like: "Negative b plus or minus the square root of b squared minus four a c, all divided by two a." It\'s like a recipe - you put in the values of a, b, and c, and get the solutions for x.',
       kinesthetic: 'Imagine the quadratic formula as a balance scale. On the left side is -b, and on the right is either +√(b² - 4ac) or -√(b² - 4ac), all balanced on a pivot point at 2a.'
     }
   },
@@ -45,7 +62,7 @@ const MOCK_QUESTIONS = [
       text: 'Personification is a figure of speech where human attributes are given to non-human things, like animals, objects, or abstract concepts.',
       visual: 'Picture a smiling sun with arms reaching down to warm the earth, or clouds with faces blowing wind - these are visual representations of personification.',
       auditory: 'Think of expressions like "the wind whispered," "the thunder grumbled," or "the alarm clock screamed" - these all give human voice characteristics to non-human things.',
-      kinesthetic: 'Act out what it means when we say "the flowers danced in the breeze" or "the car complained as it started" - you're physically demonstrating personification.'
+      kinesthetic: 'Act out what it means when we say "the flowers danced in the breeze" or "the car complained as it started" - you\'re physically demonstrating personification.'
     }
   }
 ];

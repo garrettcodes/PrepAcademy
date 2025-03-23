@@ -63,9 +63,27 @@ npm install
    - Create a `.env` file in the server directory with the following variables:
 ```
 PORT=5000
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
+NODE_ENV=development
+
+# MongoDB Connection Configuration
+# Option 1: Use MONGO_URI for a complete connection string (recommended for production)
+MONGO_URI=mongodb://localhost:27017/prepacademy
+
+# Option 2: Use individual components (alternative for development)
+MONGO_HOST=localhost
+MONGO_PORT=27017
+MONGO_DB=prepacademy
+MONGO_USER=
+MONGO_PASS=
+
+# Other required environment variables
+JWT_SECRET=your_jwt_secret_should_be_at_least_32_chars
+JWT_REFRESH_SECRET=your_refresh_secret_should_be_at_least_32_chars
+ENCRYPTION_KEY=your_32_character_encryption_key
+FRONTEND_URL=http://localhost:3000
 ```
+
+   - For production, make sure to set all variables marked as required in the `.env.example` file
 
 4. Start the development servers
 ```bash
@@ -187,4 +205,88 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Your Name - your.email@example.com
 
-Project Link: [https://github.com/garrettcodes/prepacademy](https://github.com/garrettcodes/prepacademy) 
+Project Link: [https://github.com/garrettcodes/prepacademy](https://github.com/garrettcodes/prepacademy)
+
+## Database Configuration
+
+PrepAcademy supports flexible database configuration for different environments:
+
+### Development Environment
+
+For local development, you can use either:
+
+1. **Simple Configuration**: Set only the `MONGO_URI` environment variable:
+   ```
+   MONGO_URI=mongodb://localhost:27017/prepacademy
+   ```
+
+2. **Component Configuration**: Set individual connection parameters:
+   ```
+   MONGO_HOST=localhost
+   MONGO_PORT=27017
+   MONGO_DB=prepacademy
+   ```
+   
+   For authenticated connections, also add:
+   ```
+   MONGO_USER=your_username
+   MONGO_PASS=your_password
+   ```
+
+### Production Environment
+
+For production, it's recommended to use the `MONGO_URI` environment variable with your full connection string, including authentication if needed:
+
+```
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/prepacademy?retryWrites=true&w=majority
+```
+
+### Connection Resilience
+
+The application implements robust database connection handling:
+
+- Automatic connection retries with exponential backoff
+- Appropriate error logging with stack traces
+- Graceful handling of connection failures
+- Proper connection cleanup on application shutdown
+
+## Environment Variables Management
+
+PrepAcademy includes a comprehensive environment variable management system to ensure proper configuration:
+
+### Validation System
+
+The application automatically validates all environment variables on startup:
+
+- **Required Variables**: The application will log errors if required variables are missing or invalid
+- **Production Mode**: In production mode, the application will refuse to start if critical variables are missing
+- **Development Mode**: In development mode, warnings are displayed but the application will still start
+- **Validation Rules**: Each variable has specific validation rules (e.g., format, length, etc.)
+
+### Configuration Access
+
+Environment variables are accessed through a centralized configuration system:
+
+```typescript
+import config from './utils/config';
+
+// Examples:
+const databaseUri = config.database.uri;
+const jwtSecret = config.jwt.secret;
+const isProduction = config.server.isProduction;
+```
+
+This provides:
+
+- Type safety for environment variables
+- Default values for optional variables
+- Clear organization by category
+- Consistent access patterns throughout the codebase
+
+### Testing Configuration
+
+For testing, a separate set of environment variables is used:
+
+- Create a `.env.test` file for test-specific configuration
+- Default test values are provided automatically
+- Test database connections are configured separately

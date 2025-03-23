@@ -295,10 +295,23 @@ const Dashboard: React.FC = () => {
             <div className="text-center py-4">
               <div className="spinner"></div>
             </div>
-          ) : performanceSummary && performanceSummary.recentScores?.length > 0 ? (
+          ) : performanceSummary && performanceSummary.recentScores && performanceSummary.recentScores.length > 0 ? (
             <>
               <div className="h-40 mb-4">
-                <PerformanceChart data={performanceSummary.recentScores} />
+                <PerformanceChart 
+                  data={{
+                    labels: performanceSummary.recentScores.map(score => score.date),
+                    datasets: [
+                      {
+                        label: 'Scores',
+                        data: performanceSummary.recentScores.map(score => score.score),
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                      },
+                    ],
+                  }}
+                />
               </div>
               <div className="flex justify-around text-center">
                 <div>

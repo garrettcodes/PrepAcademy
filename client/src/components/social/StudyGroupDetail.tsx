@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   getStudyGroupById, 
   leaveStudyGroup, 
@@ -8,9 +9,15 @@ import {
   StudyGroup 
 } from '../../services/studyGroupService';
 import { getGroupSharedNotes, SharedNote } from '../../services/sharedNoteService';
+import Button from '../ui/Button';
+
+interface RouteParams {
+  groupId: string;
+  [key: string]: string;
+}
 
 const StudyGroupDetail: React.FC = () => {
-  const { groupId } = useParams<{ groupId: string }>();
+  const { groupId } = useParams<RouteParams>();
   const navigate = useNavigate();
   const [group, setGroup] = useState<StudyGroup | null>(null);
   const [notes, setNotes] = useState<SharedNote[]>([]);
@@ -23,13 +30,8 @@ const StudyGroupDetail: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [showConfirmLeave, setShowConfirmLeave] = useState<boolean>(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
+  const { user } = useAuth();
   
-  // Mock user ID for demonstration - should come from auth context
-  const [currentUser, setCurrentUser] = useState<{ _id: string; name: string }>({ 
-    _id: 'user123', 
-    name: 'Current User' 
-  });
-
   useEffect(() => {
     const fetchGroupDetails = async () => {
       if (!groupId) return;
@@ -43,7 +45,7 @@ const StudyGroupDetail: React.FC = () => {
         
         // If user is a member, fetch shared notes in this group
         const isMember = groupData.members.some(
-          (member) => member._id === currentUser._id
+          (member) => member._id === user?._id
         );
         
         if (isMember) {
@@ -61,7 +63,7 @@ const StudyGroupDetail: React.FC = () => {
     };
 
     fetchGroupDetails();
-  }, [groupId, currentUser._id]);
+  }, [groupId, user?._id]);
 
   const handleJoinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,8 +138,8 @@ const StudyGroupDetail: React.FC = () => {
     );
   }
 
-  const isOwner = group.owner._id === currentUser._id;
-  const isMember = group.members.some(member => member._id === currentUser._id);
+  const isOwner = group.owner._id === user?._id;
+  const isMember = group.members.some(member => member._id === user?._id);
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -283,12 +285,12 @@ const StudyGroupDetail: React.FC = () => {
           <div className="mt-8 pt-6 border-t border-gray-200">
             {!isMember && !isOwner ? (
               !showJoinForm ? (
-                <button
+                <Button
                   onClick={() => setShowJoinForm(true)}
-                  className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  variant="primary"
                 >
                   Join Group
-                </button>
+                </Button>
               ) : (
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="text-lg font-medium text-gray-800 mb-2">Join this group</h3>
@@ -317,22 +319,20 @@ const StudyGroupDetail: React.FC = () => {
                     )}
                     
                     <div className="flex items-center">
-                      <button
+                      <Button
                         type="submit"
                         disabled={actionLoading}
-                        className={`mr-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                          actionLoading ? 'opacity-70 cursor-not-allowed' : ''
-                        }`}
+                        variant="primary"
                       >
                         {actionLoading ? 'Joining...' : 'Join Group'}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
                         onClick={() => setShowJoinForm(false)}
-                        className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                        variant="outline"
                       >
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 </div>
@@ -341,21 +341,21 @@ const StudyGroupDetail: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   {!isOwner ? (
-                    <button
+                    <Button
                       onClick={() => setShowConfirmLeave(true)}
-                      className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                      disabled={actionLoading}
+                      variant="outline"
+                      className="text-red-600 border-red-600 hover:bg-red-50"
                     >
                       Leave Group
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
                       onClick={() => setShowConfirmDelete(true)}
-                      className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-                      disabled={actionLoading}
+                      variant="outline"
+                      className="text-red-600 border-red-600 hover:bg-red-50"
                     >
                       Delete Group
-                    </button>
+                    </Button>
                   )}
                 </div>
                 
@@ -380,21 +380,19 @@ const StudyGroupDetail: React.FC = () => {
               Are you sure you want to leave this group? You will need to rejoin if you want to access it again.
             </p>
             <div className="flex justify-end">
-              <button
+              <Button
                 onClick={() => setShowConfirmLeave(false)}
-                className="mr-2 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                variant="outline"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleLeave}
                 disabled={actionLoading}
-                className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 ${
-                  actionLoading ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                variant="primary"
               >
                 {actionLoading ? 'Leaving...' : 'Leave Group'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -411,21 +409,19 @@ const StudyGroupDetail: React.FC = () => {
               All shared notes in this group will no longer be accessible by members.
             </p>
             <div className="flex justify-end">
-              <button
+              <Button
                 onClick={() => setShowConfirmDelete(false)}
-                className="mr-2 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                variant="outline"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleDelete}
                 disabled={actionLoading}
-                className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 ${
-                  actionLoading ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
+                variant="primary"
               >
                 {actionLoading ? 'Deleting...' : 'Delete Group'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

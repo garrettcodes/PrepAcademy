@@ -2,6 +2,18 @@ import jwt from 'jsonwebtoken';
 import { IUser } from '../models/user.model';
 import { IParent } from '../models/parent.model';
 
+// Define interfaces for JWT payloads
+export interface JWTAccessPayload {
+  userId: string;
+  email: string;
+  name: string;
+  userType: 'student' | 'parent';
+}
+
+export interface JWTRefreshPayload extends Pick<JWTAccessPayload, 'userId' | 'userType'> {
+  tokenType: 'refresh';
+}
+
 // Generate access token (short-lived)
 export const generateAccessToken = (user: IUser | IParent, userType: 'student' | 'parent' = 'student'): string => {
   const payload = {
@@ -20,7 +32,7 @@ export const generateAccessToken = (user: IUser | IParent, userType: 'student' |
 export const generateRefreshToken = (user: IUser | IParent, userType: 'student' | 'parent' = 'student'): string => {
   const payload = {
     userId: user._id,
-    tokenType: 'refresh',
+    tokenType: 'refresh' as const,
     userType,
   };
 
@@ -36,18 +48,21 @@ export const generateToken = (user: IUser | IParent, userType: 'student' | 'pare
 };
 
 // Verify JWT access token
-export const verifyToken = (token: string): any => {
+export const verifyToken = (token: string): JWTAccessPayload => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    return jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as JWTAccessPayload;
   } catch (error) {
     throw new Error('Invalid token');
   }
 };
 
 // Verify JWT refresh token
-export const verifyRefreshToken = (token: string): any => {
+export const verifyRefreshToken = (token: string): JWTRefreshPayload => {
   try {
-    return jwt.verify(token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback_secret');
+    return jwt.verify(
+      token, 
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback_secret'
+    ) as JWTRefreshPayload;
   } catch (error) {
     throw new Error('Invalid refresh token');
   }

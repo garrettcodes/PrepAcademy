@@ -37,7 +37,7 @@ import StudentReports from './pages/parent/StudentReports';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ContentReviews from './pages/admin/ContentReviews';
 import ReviewDetail from './pages/admin/ReviewDetail';
-import SATACTUpdates from './pages/admin/SATACTUpdates';
+import SatActUpdates from './pages/admin/SatActUpdates';
 import NotFound from './pages/NotFound';
 import BadgeNotification from './components/ui/BadgeNotification';
 import AssessmentNotification from './components/ui/AssessmentNotification';
@@ -206,7 +206,7 @@ const AppContent: React.FC = () => {
         } />
         <Route path="/admin/sat-act-updates" element={
           <PrivateRoute>
-            {isAdminOrExpert() ? <SATACTUpdates /> : <Navigate to="/dashboard" />}
+            {isAdminOrExpert() ? <SatActUpdates /> : <Navigate to="/dashboard" />}
           </PrivateRoute>
         } />
         {/* New Admin Feedback Route */}

@@ -5,7 +5,7 @@ export interface IExam extends Document {
   description: string;
   type: string;
   duration: number;
-  questions: mongoose.Types.ObjectId[];
+  questions: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
   difficulty: string;
 }
 

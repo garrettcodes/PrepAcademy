@@ -17,15 +17,6 @@ const BadgeNotification: React.FC<BadgeNotificationProps> = ({ badges, onClose }
   const [currentBadgeIndex, setCurrentBadgeIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
-  // Auto hide after 5 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleClose();
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
   const handleClose = () => {
     setVisible(false);
     // Add a small delay for animation to complete
@@ -33,6 +24,15 @@ const BadgeNotification: React.FC<BadgeNotificationProps> = ({ badges, onClose }
       onClose();
     }, 300);
   };
+
+  // Auto hide after 5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleClose();
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [handleClose]);
 
   // Only show if there are badges and the notification is visible
   if (badges.length === 0 || !visible) {

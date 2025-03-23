@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PracticeContext } from '../../context/PracticeContext';
+import { PracticeContext, usePractice } from '../../context/PracticeContext';
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -20,7 +20,7 @@ import { Bar, Pie, Radar } from 'react-chartjs-2';
 // UI components
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 // Register ChartJS components
 ChartJS.register(
@@ -38,7 +38,7 @@ ChartJS.register(
 
 const ExamResultPage: React.FC = () => {
   const navigate = useNavigate();
-  const { examResult, resetExamResult } = useContext(PracticeContext)!;
+  const { examResult, resetExamResult } = usePractice();
   const [activeTab, setActiveTab] = useState<'overview' | 'subjects' | 'questions'>('overview');
 
   // If no exam result, redirect to practice exams page
@@ -164,29 +164,18 @@ const ExamResultPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
-      <div className="mb-6">
-        <button
-          onClick={() => {
-            resetExamResult();
-            navigate('/exams');
-          }}
-          className="text-gray-600 hover:text-gray-800 flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-          </svg>
-          Back to Practice Exams
-        </button>
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Exam Results</h1>
+        <StatusBadge className="bg-white text-blue-700">
+          {examResult?.examType || 'Practice Exam'}
+        </StatusBadge>
       </div>
 
       <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
         <div className="p-6 bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
           <h1 className="text-3xl font-bold mb-2">{examResult.examTitle}</h1>
           <div className="flex flex-wrap items-center gap-4">
-            <Badge className="bg-white text-blue-700">
-              {examResult.examType}
-            </Badge>
             <div className="text-sm">
               Duration: {examResult.examDuration} minutes
             </div>
@@ -393,7 +382,7 @@ const ExamResultPage: React.FC = () => {
                   <Card key={subject} className="p-6">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-xl font-bold text-gray-800">{subject}</h3>
-                      <Badge
+                      <StatusBadge
                         variant={
                           examResult.subjectScores[subject] >= 80 ? 'success' : 
                           examResult.subjectScores[subject] >= 60 ? 'warning' : 
@@ -401,7 +390,7 @@ const ExamResultPage: React.FC = () => {
                         }
                       >
                         {examResult.subjectScores[subject]}%
-                      </Badge>
+                      </StatusBadge>
                     </div>
                     
                     <div className="mb-4">
@@ -418,7 +407,7 @@ const ExamResultPage: React.FC = () => {
                               <div className="text-sm text-gray-500">
                                 {correct}/{total} correct
                               </div>
-                              <Badge
+                              <StatusBadge
                                 variant={
                                   (correct / total * 100) >= 80 ? 'success' : 
                                   (correct / total * 100) >= 60 ? 'warning' : 
@@ -426,7 +415,7 @@ const ExamResultPage: React.FC = () => {
                                 }
                               >
                                 {Math.round(correct / total * 100)}%
-                              </Badge>
+                              </StatusBadge>
                             </div>
                           </div>
                         ))}

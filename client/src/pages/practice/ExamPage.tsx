@@ -1,19 +1,25 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PracticeContext } from '../../context/PracticeContext';
+import { PracticeContext, usePractice } from '../../context/PracticeContext';
 import { API_URL } from '../../config';
-import { QuestionCard } from '../../components/question/QuestionCard';
+import QuestionCard from '../../components/question/QuestionCard';
 
 // UI components
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 interface Answer {
   questionId: string;
   selectedAnswer: string;
   timeSpent: number;
+}
+
+interface Option {
+  id: string;
+  text: string;
 }
 
 const ExamPage: React.FC = () => {
@@ -26,7 +32,7 @@ const ExamPage: React.FC = () => {
     fetchExamById,
     submitExam,
     getNextAdaptiveQuestion,
-  } = useContext(PracticeContext)!;
+  } = usePractice();
 
   // State for the current exam
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -63,7 +69,7 @@ const ExamPage: React.FC = () => {
     if (selectedAnswer && currentExam?.questions[currentQuestionIndex]) {
       const currentQuestionId = currentExam.questions[currentQuestionIndex]._id;
       const existingAnswerIndex = updatedAnswers.findIndex(
-        a => a.questionId === currentQuestionId
+        a => currentExam?.questions?.[currentQuestionIndex]?._id === a.questionId
       );
       
       if (existingAnswerIndex >= 0) {
@@ -169,7 +175,7 @@ const ExamPage: React.FC = () => {
           // Check if there's a selected answer for the current question
           if (savedTimer.answers && savedTimer.currentQuestionIndex !== undefined) {
             const currentQuestionId = currentExam.questions[savedTimer.currentQuestionIndex]._id;
-            const savedAnswer = savedTimer.answers.find(a => a.questionId === currentQuestionId);
+            const savedAnswer = savedTimer.answers.find((a: { questionId: string }) => a.questionId === currentQuestionId);
             
             if (savedAnswer) {
               setSelectedAnswer(savedAnswer.selectedAnswer);
@@ -310,7 +316,7 @@ const ExamPage: React.FC = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [timerActive, timeRemaining, saveTimerState, handleSubmitExam, getTimerKey, id, submitExam, navigate, answers, selectedAnswer, currentExam, currentQuestionIndex, timeSpent]);
+  }, [timerActive, timeRemaining, saveTimerState, getTimerKey, id, submitExam, navigate, answers, selectedAnswer, currentExam, currentQuestionIndex, timeSpent]);
 
   // Track time spent on current question
   useEffect(() => {
@@ -337,7 +343,7 @@ const ExamPage: React.FC = () => {
       
       // Check if we need to update an existing answer or add a new one
       const existingAnswerIndex = updatedAnswers.findIndex(
-        a => a.questionId === currentExam.questions[currentQuestionIndex]._id
+        a => currentExam?.questions?.[currentQuestionIndex]?._id === a.questionId
       );
       
       if (existingAnswerIndex >= 0) {
@@ -404,39 +410,26 @@ const ExamPage: React.FC = () => {
 
   // Function to submit the entire exam
   const handleSubmitExam = useCallback(() => {
-    if (!currentExam || !id) return;
-    
-    // Add the current question's answer if not already added
-    let finalAnswers = [...answers];
-    
-    if (selectedAnswer && currentQuestionIndex < currentExam.questions.length) {
-      const currentQuestion = currentExam.questions[currentQuestionIndex];
-      const existingAnswerIndex = finalAnswers.findIndex(a => a.questionId === currentQuestion._id);
-      
-      if (existingAnswerIndex >= 0) {
-        // Update existing answer
-        finalAnswers[existingAnswerIndex].selectedAnswer = selectedAnswer;
-        finalAnswers[existingAnswerIndex].timeSpent = timeSpent;
-      } else {
-        // Add new answer
-        finalAnswers.push({
-          questionId: currentQuestion._id,
-          selectedAnswer,
-          timeSpent,
-        });
-      }
+    if (currentExam && answers.length > 0) {
+      submitExam(currentExam._id, answers, new Date());
+      navigate(`/exams/results/${currentExam._id}`);
     }
-    
-    // Submit exam
-    submitExam(id, finalAnswers, new Date());
-    
-    // Clear timer data from localStorage
-    localStorage.removeItem(getTimerKey());
-    sessionStorage.removeItem(getTimerKey());
-    
-    // Navigate to results page
-    navigate('/exams/results');
-  }, [currentExam, id, answers, currentQuestionIndex, selectedAnswer, timeSpent, submitExam, getTimerKey, navigate]);
+  }, [currentExam, answers, submitExam, navigate]);
+
+  // Effect to handle timer logic
+  useEffect(() => {
+    if (timerActive && timeRemaining > 0) {
+      const timer = setTimeout(() => {
+        setTimeRemaining(prev => prev - 1);
+        setTimeSpent(prev => prev + 1);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    } else if (timerActive && timeRemaining === 0) {
+      // Auto-submit when timer runs out
+      handleSubmitExam();
+    }
+  }, [timerActive, timeRemaining, handleSubmitExam]);
 
   if (loading) {
     return (
@@ -485,9 +478,9 @@ const ExamPage: React.FC = () => {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-gray-700 font-medium">Time Remaining:</span>
-            <Badge variant={timeRemaining < 300 ? 'danger' : timeRemaining < 600 ? 'warning' : 'success'}>
+            <StatusBadge variant={timeRemaining < 300 ? 'danger' : timeRemaining < 600 ? 'warning' : 'success'}>
               {formatTime(timeRemaining)}
-            </Badge>
+            </StatusBadge>
           </div>
         </div>
       </div>
@@ -496,14 +489,19 @@ const ExamPage: React.FC = () => {
         <div className="p-1">
           {currentQuestion ? (
             <QuestionCard
-              question={currentQuestion}
-              selectedAnswer={selectedAnswer}
-              onSelectAnswer={handleSelectAnswer}
-              showHints={false}
-              showFeedback={false}
+              id={currentQuestion._id}
+              questionText={currentQuestion.text}
+              options={currentQuestion.options.map((opt: any) => ({ 
+                id: typeof opt === 'string' ? opt : opt._id, 
+                text: typeof opt === 'string' ? opt : opt.text 
+              }))}
+              selectedOption={selectedAnswer}
+              onSelectOption={handleSelectAnswer}
+              subject={currentQuestion.subject}
+              difficulty={currentQuestion.difficulty}
             />
           ) : (
-            <p className="text-center p-8 text-gray-700">No questions available</p>
+            <div className="p-4 text-center">Loading question...</div>
           )}
         </div>
       </Card>

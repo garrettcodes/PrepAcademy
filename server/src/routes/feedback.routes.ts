@@ -1,28 +1,21 @@
-import express from 'express';
-import { authenticate } from '../middleware/auth';
+import { Router } from 'express';
 import * as feedbackController from '../controllers/feedback.controller';
+import { protect } from '../middleware/auth.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// Feedback routes (all require authentication)
-router.use(authenticate);
-
-// Submit new feedback
+// Public route for submitting feedback
 router.post('/', feedbackController.submitFeedback);
 
-// Get user's feedback submissions
-router.get('/my-feedback', feedbackController.getUserFeedback);
+// Routes requiring authentication
+router.use(protect);
 
-// Get all feedback (admin only)
-router.get('/', feedbackController.getAllFeedback);
+// Get user's feedback
+router.get('/user', feedbackController.getUserFeedback);
 
-// Get single feedback by ID
-router.get('/:feedbackId', feedbackController.getFeedbackById);
-
-// Update feedback status (admin only)
-router.put('/:feedbackId', feedbackController.updateFeedbackStatus);
-
-// Delete feedback (admin only or owner)
-router.delete('/:feedbackId', feedbackController.deleteFeedback);
+// Admin routes
+router.get('/all', feedbackController.getAllFeedback);
+router.put('/:id/status', feedbackController.updateFeedbackStatus);
+router.delete('/:id', feedbackController.deleteFeedback);
 
 export default router; 

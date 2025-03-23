@@ -1,8 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IStressManagementProgress extends Document {
-  user: mongoose.Types.ObjectId;
-  content: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  contentId: mongoose.Types.ObjectId;
   completed: boolean;
   completedDate?: Date;
   progress: number; // 0-100%
@@ -13,12 +13,12 @@ export interface IStressManagementProgress extends Document {
 
 const StressManagementProgressSchema: Schema = new Schema(
   {
-    user: {
+    userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
-    content: {
+    contentId: {
       type: Schema.Types.ObjectId,
       ref: 'StressManagementContent',
       required: true,
@@ -53,7 +53,7 @@ const StressManagementProgressSchema: Schema = new Schema(
 );
 
 // Create compound index to ensure a user can only have one progress record per content
-StressManagementProgressSchema.index({ user: 1, content: 1 }, { unique: true });
+StressManagementProgressSchema.index({ userId: 1, contentId: 1 }, { unique: true });
 
 export default mongoose.model<IStressManagementProgress>(
   'StressManagementProgress',

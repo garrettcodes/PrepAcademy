@@ -1,36 +1,37 @@
 import { Router } from 'express';
 import * as studyGroupController from '../controllers/studyGroup.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { checkSubscriptionMiddleware } from '../middleware/subscription.middleware';
+import { protect } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// All study group routes require authentication and an active subscription
-router.use(authMiddleware);
-router.use(checkSubscriptionMiddleware);
+// All routes require authentication
+router.use(protect);
 
-// Create a new study group
+// Get all study groups
+router.get('/', studyGroupController.getStudyGroups);
+
+// Get study group by ID
+router.get('/:id', studyGroupController.getStudyGroup);
+
+// Create study group
 router.post('/', studyGroupController.createStudyGroup);
 
-// Get public study groups
-router.get('/public', studyGroupController.getPublicStudyGroups);
+// Update study group
+router.put('/:id', studyGroupController.updateStudyGroup);
+
+// Delete study group
+router.delete('/:id', studyGroupController.deleteStudyGroup);
+
+// Join study group
+router.post('/:id/join', studyGroupController.joinStudyGroup);
+
+// Leave study group
+router.post('/:id/leave', studyGroupController.leaveStudyGroup);
+
+// Add message to study group
+router.post('/:id/message', studyGroupController.addMessage);
 
 // Get user's study groups
-router.get('/my-groups', studyGroupController.getUserStudyGroups);
-
-// Get a specific study group
-router.get('/:groupId', studyGroupController.getStudyGroup);
-
-// Join a study group
-router.post('/join', studyGroupController.joinStudyGroup);
-
-// Leave a study group
-router.delete('/:groupId/leave', studyGroupController.leaveStudyGroup);
-
-// Update a study group
-router.put('/:groupId', studyGroupController.updateStudyGroup);
-
-// Delete a study group
-router.delete('/:groupId', studyGroupController.deleteStudyGroup);
+router.get('/user/:userId', studyGroupController.getUserStudyGroups);
 
 export default router; 

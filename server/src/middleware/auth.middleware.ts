@@ -2,11 +2,23 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
 import User from '../models/user.model';
 
+// Define the JWT payload interface
+interface JWTPayload {
+  userId: string;
+  email: string;
+  name: string;
+  userType?: 'student' | 'parent';
+  role?: string;
+  expertise?: string[];
+  tokenType?: string;
+  _id?: string; // Add _id as alias for userId for backward compatibility
+}
+
 // Extend Express Request interface to include user
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user?: JWTPayload;
     }
   }
 }
@@ -28,10 +40,15 @@ export const protect = async (
       token = req.headers.authorization.split(' ')[1];
 
       // Verify token
-      const decoded = verifyToken(token);
+      const decoded = verifyToken(token) as JWTPayload;
 
       // Add user to request
       req.user = decoded;
+      
+      // Set _id equal to userId for backward compatibility
+      if (req.user && req.user.userId) {
+        req.user._id = req.user.userId;
+      }
 
       next();
     } catch (error) {
@@ -162,4 +179,15 @@ export const csrfProtection = (req: Request, res: Response, next: NextFunction) 
   }
   
   next();
+};
+
+// Export all middlewares as individual functions and as a combined object
+export const authMiddleware = {
+  protect,
+  authorize,
+  authorizeExpertise,
+  admin,
+  expert,
+  secureCookieSettings,
+  csrfProtection
 }; 

@@ -41,37 +41,57 @@ export interface CreateNoteData {
   studyGroupId?: string;
 }
 
+export interface UpdateNoteData {
+  title?: string;
+  content?: string;
+  subject?: string;
+  topic?: string;
+  tags?: string[];
+  visibility?: 'public' | 'private' | 'group';
+  studyGroupId?: string;
+}
+
+export interface CommentData {
+  text: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  count?: number;
+}
+
 // Create a new shared note
 export const createSharedNote = async (noteData: CreateNoteData): Promise<SharedNote> => {
-  const response = await api.post('/shared-notes', noteData);
+  const response = await api.post<ApiResponse<SharedNote>>('/shared-notes', noteData);
   return response.data.data;
 };
 
 // Get all public shared notes
-export const getPublicSharedNotes = async (
-  page = 1, 
-  limit = 10, 
-  filters?: { subject?: string; topic?: string; tag?: string }
-): Promise<{ 
-  notes: SharedNote[]; 
-  total: number; 
+export const getPublicSharedNotes = async (page = 1, limit = 10, subject?: string, topic?: string): Promise<{
+  notes: SharedNote[];
+  total: number;
   page: number;
   pages: number;
 }> => {
-  const params: any = { page, limit, ...filters };
+  const params: Record<string, any> = { page, limit };
+  if (subject) params.subject = subject;
+  if (topic) params.topic = topic;
   
-  const response = await api.get('/shared-notes/public', { params });
+  const response = await api.get<ApiResponse<SharedNote[]>>('/shared-notes/public', { params });
+  
   return {
     notes: response.data.data,
-    total: response.data.total,
-    page: response.data.page,
-    pages: response.data.pages
+    total: response.data.count || 0,
+    page,
+    pages: Math.ceil((response.data.count || 0) / limit)
   };
 };
 
 // Get all notes shared in a specific study group
 export const getGroupSharedNotes = async (groupId: string): Promise<SharedNote[]> => {
-  const response = await api.get(`/shared-notes/group/${groupId}`);
+  const response = await api.get<ApiResponse<SharedNote[]>>(`/shared-notes/group/${groupId}`);
   return response.data.data;
 };
 
@@ -81,37 +101,37 @@ export const getUserNotes = async (): Promise<SharedNote[]> => {
   return response.data.data;
 };
 
-// Get a single note by ID
+// Get a specific shared note by ID
 export const getSharedNoteById = async (noteId: string): Promise<SharedNote> => {
-  const response = await api.get(`/shared-notes/${noteId}`);
+  const response = await api.get<ApiResponse<SharedNote>>(`/shared-notes/${noteId}`);
   return response.data.data;
 };
 
-// Update a note
-export const updateSharedNote = async (
-  noteId: string, 
-  updateData: Partial<CreateNoteData>
-): Promise<SharedNote> => {
-  const response = await api.put(`/shared-notes/${noteId}`, updateData);
+// Update a shared note
+export const updateSharedNote = async (noteId: string, updateData: UpdateNoteData): Promise<SharedNote> => {
+  const response = await api.put<ApiResponse<SharedNote>>(`/shared-notes/${noteId}`, updateData);
   return response.data.data;
 };
 
-// Delete a note
+// Delete a shared note
 export const deleteSharedNote = async (noteId: string): Promise<void> => {
   await api.delete(`/shared-notes/${noteId}`);
 };
 
-// Add a comment to a note
-export const addComment = async (noteId: string, text: string): Promise<SharedNote> => {
-  const response = await api.post(`/shared-notes/${noteId}/comments`, { text });
+// Add a comment to a shared note
+export const addComment = async (noteId: string, commentData: CommentData): Promise<SharedNote> => {
+  const response = await api.post<ApiResponse<SharedNote>>(`/shared-notes/${noteId}/comments`, commentData);
   return response.data.data;
 };
 
-// Vote on a note (upvote or downvote)
-export const voteOnNote = async (
-  noteId: string, 
-  voteType: 'upvote' | 'downvote'
-): Promise<{ upvotes: number; downvotes: number }> => {
-  const response = await api.post(`/shared-notes/${noteId}/vote`, { voteType });
+// Upvote a shared note
+export const upvoteNote = async (noteId: string): Promise<SharedNote> => {
+  const response = await api.post<ApiResponse<SharedNote>>(`/shared-notes/${noteId}/upvote`);
+  return response.data.data;
+};
+
+// Downvote a shared note
+export const downvoteNote = async (noteId: string): Promise<SharedNote> => {
+  const response = await api.post<ApiResponse<SharedNote>>(`/shared-notes/${noteId}/downvote`);
   return response.data.data;
 }; 

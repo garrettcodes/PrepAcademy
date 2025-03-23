@@ -8,6 +8,11 @@ import { updateOnboardingStep, skipOnboarding } from './onboarding.controller';
 // Sync offline progress
 export const syncOfflineProgress = async (req: Request, res: Response) => {
   try {
+    // Ensure the user exists in the request
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const userId = req.user.userId;
     const { actions } = req.body;
     
@@ -97,7 +102,7 @@ async function processAnswerQuestion(userId: string, data: any) {
     question: questionId,
     isCorrect,
     timeSpent,
-    category: question.category,
+    category: question.subject,
     difficulty: question.difficulty,
   });
   

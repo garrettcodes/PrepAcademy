@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useOffline } from '../../context/OfflineContext';
 
 interface DownloadForOfflineButtonProps {
-  contentType: string;
+  contentType: 'questions' | 'studyMaterials' | 'stressManagement';
   contentId: string;
   label?: string;
   className?: string;

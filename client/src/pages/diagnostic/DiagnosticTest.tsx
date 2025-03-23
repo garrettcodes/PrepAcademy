@@ -195,25 +195,27 @@ const DiagnosticTest: React.FC = () => {
   // Current question display
   const currentQuestion = questions[currentQuestionIndex];
   
+  const handleQuestionAnswer = (selectedOption: string) => {
+    if (currentQuestion) {
+      handleAnswer(currentQuestion._id, selectedOption);
+    }
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Diagnostic Test</h1>
-        <p className="text-gray-600">
-          Question {currentQuestionIndex + 1} of {questions.length}
-        </p>
-        <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-          <div 
-            className="bg-blue-600 h-2.5 rounded-full" 
-            style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-          ></div>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Diagnostic Test</h1>
+          <p className="text-gray-600 mt-1">
+            Question {currentQuestionIndex + 1} of {questions.length}
+          </p>
         </div>
       </div>
 
       {currentQuestion && (
         <Question
           question={currentQuestion}
-          onAnswer={handleAnswer}
+          onAnswer={handleQuestionAnswer}
         />
       )}
     </div>

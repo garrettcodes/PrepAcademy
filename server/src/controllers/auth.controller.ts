@@ -1,10 +1,35 @@
 import { Request, Response } from 'express';
 import User, { IUser } from '../models/user.model';
-import { generateToken, generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
+import { 
+  generateToken, 
+  generateAccessToken, 
+  generateRefreshToken, 
+  verifyRefreshToken, 
+  JWTRefreshPayload 
+} from '../utils/jwt';
 import { initializeOnboarding } from './onboarding.controller';
 
+// Define interfaces for request bodies
+interface RegisterRequestBody {
+  name: string;
+  email: string;
+  password: string;
+  learningStyle?: string;
+  targetScore?: number;
+  testDate?: Date;
+}
+
+interface LoginRequestBody {
+  email: string;
+  password: string;
+}
+
+interface RefreshTokenRequestBody {
+  refreshToken: string;
+}
+
 // Register a new user
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: Request<{}, {}, RegisterRequestBody>, res: Response) => {
   try {
     const { name, email, password, learningStyle, targetScore, testDate } = req.body;
 
@@ -45,14 +70,15 @@ export const register = async (req: Request, res: Response) => {
     } else {
       res.status(400).json({ message: 'Invalid user data' });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 };
 
 // Login user
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request<{}, {}, LoginRequestBody>, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -84,15 +110,21 @@ export const login = async (req: Request, res: Response) => {
       refreshToken, // Also sending refreshToken
       tokenType: 'Bearer',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 };
 
 // Get current user
 export const getCurrentUser = async (req: Request, res: Response) => {
   try {
+    // Check if req.user exists and has userId
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const user = await User.findById(req.user.userId).populate('badges');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -108,14 +140,15 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       points: user.points,
       badges: user.badges,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get current user error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 };
 
 // Refresh access token
-export const refreshToken = async (req: Request, res: Response) => {
+export const refreshToken = async (req: Request<{}, {}, RefreshTokenRequestBody>, res: Response) => {
   try {
     const { refreshToken } = req.body;
     
@@ -143,8 +176,9 @@ export const refreshToken = async (req: Request, res: Response) => {
       accessToken,
       message: 'Token refreshed successfully'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Token refresh error:', error);
-    res.status(401).json({ message: 'Invalid refresh token', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(401).json({ message: 'Invalid refresh token', error: errorMessage });
   }
 }; 

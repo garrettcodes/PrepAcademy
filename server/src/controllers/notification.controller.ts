@@ -1,8 +1,39 @@
 import { Request, Response } from 'express';
-import { AuthRequest } from '../middleware/auth';
+import mongoose from 'mongoose';
+import { AuthRequest } from '../types';
 
-// Import the Notification model
-const Notification = require('../models/notification.model');
+// Import notification model
+import Notification from '../models/notification.model';
+
+// Interface for notification data
+export interface NotificationData {
+  user: string;
+  title: string;
+  message: string;
+  type?: string;
+  link?: string;
+  relatedId?: string; // Add relatedId for references to other objects
+}
+
+// Create a notification
+export const createNotification = async (data: NotificationData) => {
+  try {
+    const notification = new Notification({
+      userId: data.user,
+      title: data.title,
+      message: data.message,
+      type: data.type || 'info',
+      link: data.link,
+      read: false,
+    });
+    
+    await notification.save();
+    return notification;
+  } catch (error) {
+    console.error('Create notification error:', error);
+    throw error;
+  }
+};
 
 // Get all notifications for a user
 export const getNotifications = async (req: AuthRequest, res: Response) => {
@@ -10,7 +41,7 @@ export const getNotifications = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Add optional query params
@@ -49,7 +80,7 @@ export const markNotificationAsRead = async (req: AuthRequest, res: Response) =>
     const { notificationId } = req.params;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Ensure the notification belongs to the user
@@ -82,7 +113,7 @@ export const markAllNotificationsAsRead = async (req: AuthRequest, res: Response
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Update all unread notifications for the user

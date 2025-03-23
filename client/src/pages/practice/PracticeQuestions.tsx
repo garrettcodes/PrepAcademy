@@ -203,7 +203,10 @@ const PracticeQuestions: React.FC = () => {
       
       {/* Study timer */}
       <div className="mb-6">
-        <StudyTimer />
+        <StudyTimer 
+          subject={subject === 'all' ? 'General' : subject} 
+          subtopic="Practice Questions"
+        />
       </div>
       
       {/* Questions */}

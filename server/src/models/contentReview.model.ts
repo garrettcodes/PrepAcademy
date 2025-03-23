@@ -9,7 +9,7 @@ export interface IContentReview extends Document {
   reason: string;
   reviewedBy?: mongoose.Types.ObjectId;
   reviewedAt?: Date;
-  comments?: string;
+  comments: string[] | Array<string>;
   resolution?: string;
   updatedContentVersion?: any;
   satActChangeReference?: string;
@@ -56,7 +56,7 @@ const ContentReviewSchema: Schema = new Schema(
       type: Date,
     },
     comments: {
-      type: String,
+      type: [String],
       trim: true,
     },
     resolution: {
@@ -69,6 +69,19 @@ const ContentReviewSchema: Schema = new Schema(
     satActChangeReference: {
       type: String,
       trim: true,
+    },
+    reviewerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    rating: {
+      type: Number,
+    },
+    updatedAt: {
+      type: Date,
+    },
+    createdAt: {
+      type: Date,
     }
   },
   { timestamps: true }

@@ -21,6 +21,11 @@ export const getLeaderboard = async (req: Request, res: Response) => {
       .limit(Number(limit))
       .populate('user', 'name email points'); // Only return necessary user fields
       
+    // Ensure the user exists in the request
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     // Check if the requesting user is in the returned leaderboard
     const userId = req.user.userId;
     const userEntry = entries.find(entry => 
@@ -28,7 +33,12 @@ export const getLeaderboard = async (req: Request, res: Response) => {
     );
     
     // If user not in current page, get their rank
-    let userRank = null;
+    interface UserRankEntry {
+      rank: number;
+      score: number;
+    }
+    
+    let userRank: UserRankEntry | null = null;
     if (!userEntry) {
       const userRankEntry = await Leaderboard.findOne({ 
         user: userId,

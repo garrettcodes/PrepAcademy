@@ -8,7 +8,7 @@ export const checkSubscriptionMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -35,9 +35,10 @@ export const checkSubscriptionMiddleware = async (
       subscriptionRequired: true,
       status: user.subscriptionStatus
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in subscription middleware:', error);
-    return res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 };
 
@@ -49,7 +50,7 @@ export const checkTrialMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -89,9 +90,10 @@ export const checkTrialMiddleware = async (
       subscriptionRequired: true,
       status: user.subscriptionStatus
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in trial middleware:', error);
-    return res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 };
 

@@ -1,5 +1,16 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IStressManagement extends Document {
+  title: string;
+  content: string;
+  type: string;
+  duration: number;
+  category: string;
+  tags: string[] | Array<string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IStressManagementContent extends Document {
   title: string;
   description: string;
@@ -7,7 +18,7 @@ export interface IStressManagementContent extends Document {
   content: string;
   duration?: number;
   category: string;
-  tags: string[];
+  tags: string[] | Array<string>;
   mediaUrl?: string;
   order: number;
 }

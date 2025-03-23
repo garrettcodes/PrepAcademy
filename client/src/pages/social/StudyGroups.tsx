@@ -103,7 +103,33 @@ const StudyGroups: React.FC = () => {
           </div>
         )}
 
-        <StudyGroupList type={activeTab} topicFilter={topicFilter} />
+        {/* Study Group Lists */}
+        <div className="my-8">
+          <div className="mb-6 flex space-x-4">
+            <button
+              className={`px-6 py-2 text-sm font-medium rounded-full transition-colors ${
+                activeTab === 'public'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={() => setActiveTab('public')}
+            >
+              Public Groups
+            </button>
+            <button
+              onClick={() => setActiveTab('my')}
+              className={`px-6 py-2 text-sm font-medium rounded-full transition-colors ${
+                activeTab === 'my'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              My Groups
+            </button>
+          </div>
+          
+          <StudyGroupList type={activeTab === 'my' ? 'user' : 'public'} topicFilter={topicFilter} />
+        </div>
       </div>
     </PremiumFeatureGuard>
   );

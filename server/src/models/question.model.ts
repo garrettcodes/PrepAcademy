@@ -2,12 +2,12 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IQuestion extends Document {
   text: string;
-  options: string[];
+  options: string[] | Array<string>;
   correctAnswer: string;
   subject: string;
   difficulty: string;
   format: string;
-  hints: string[];
+  hints: string[] | Array<string>;
   explanations: {
     visual?: string;
     auditory?: string;

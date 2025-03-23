@@ -3,22 +3,30 @@ import User from '../models/user.model';
 import Parent from '../models/parent.model';
 import PerformanceData from '../models/performanceData.model';
 import ExamAttempt from '../models/examAttempt.model';
+import mongoose from 'mongoose';
 
 // Generate a comprehensive progress report for a student
 export const generateProgressReport = async (req: Request, res: Response) => {
   try {
+    const parentId = req.user?.userId;
+    if (!parentId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const { studentId } = req.params;
-    const parentId = req.user.userId;
     const { timeframe } = req.query; // 'week', 'month', 'all'
 
-    // Find parent and check authorization
+    // Check if parent has access to this student
     const parent = await Parent.findById(parentId);
     if (!parent) {
       return res.status(404).json({ message: 'Parent account not found' });
     }
 
+    // Convert studentId to ObjectId for proper comparison
+    const studentObjectId = new mongoose.Types.ObjectId(studentId);
+
     // Check if student is linked to this parent
-    if (!parent.students.includes(studentId)) {
+    if (!parent.students.some(id => id.equals(studentObjectId))) {
       return res.status(403).json({ message: 'Not authorized to view this student\'s data' });
     }
 
@@ -82,8 +90,12 @@ export const generateProgressReport = async (req: Request, res: Response) => {
 // Generate a study time report for a student
 export const generateStudyTimeReport = async (req: Request, res: Response) => {
   try {
+    const parentId = req.user?.userId;
+    if (!parentId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const { studentId } = req.params;
-    const parentId = req.user.userId;
     const { timeframe } = req.query; // 'week', 'month', 'all'
 
     // Find parent and check authorization
@@ -92,8 +104,11 @@ export const generateStudyTimeReport = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Parent account not found' });
     }
 
+    // Convert studentId to ObjectId for proper comparison
+    const studentObjectId = new mongoose.Types.ObjectId(studentId);
+
     // Check if student is linked to this parent
-    if (!parent.students.includes(studentId)) {
+    if (!parent.students.some(id => id.equals(studentObjectId))) {
       return res.status(403).json({ message: 'Not authorized to view this student\'s data' });
     }
 
@@ -151,18 +166,25 @@ export const generateStudyTimeReport = async (req: Request, res: Response) => {
 // Generate a task completion report for a student
 export const generateTaskCompletionReport = async (req: Request, res: Response) => {
   try {
+    const parentId = req.user?.userId;
+    if (!parentId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const { studentId } = req.params;
-    const parentId = req.user.userId;
     const { timeframe } = req.query; // 'week', 'month', 'all'
 
-    // Find parent and check authorization
+    // Check if parent has access to this student
     const parent = await Parent.findById(parentId);
     if (!parent) {
       return res.status(404).json({ message: 'Parent account not found' });
     }
 
+    // Convert studentId to ObjectId for proper comparison
+    const studentObjectId = new mongoose.Types.ObjectId(studentId);
+
     // Check if student is linked to this parent
-    if (!parent.students.includes(studentId)) {
+    if (!parent.students.some(id => id.equals(studentObjectId))) {
       return res.status(403).json({ message: 'Not authorized to view this student\'s data' });
     }
 
@@ -217,6 +239,19 @@ export const generateTaskCompletionReport = async (req: Request, res: Response) 
 
 // Helper function to calculate performance statistics
 const calculateStatistics = (performanceData: any[], examAttempts: any[]) => {
+  // Define types for stats object
+  interface ExamScore {
+    examName: string;
+    score: number;
+    date: Date;
+  }
+  
+  interface SubjectPerformance {
+    totalQuestions: number;
+    correctAnswers: number;
+    accuracy: number;
+  }
+
   // Initial statistics object
   const stats = {
     averageScore: 0,
@@ -227,8 +262,8 @@ const calculateStatistics = (performanceData: any[], examAttempts: any[]) => {
     incorrectAnswers: 0,
     accuracy: 0,
     totalStudyTimeMinutes: 0,
-    examScores: [],
-    subjectPerformance: {}
+    examScores: [] as ExamScore[],
+    subjectPerformance: {} as Record<string, SubjectPerformance>
   };
 
   // Process exam attempts
@@ -295,11 +330,20 @@ const calculateStatistics = (performanceData: any[], examAttempts: any[]) => {
 
 // Helper function to calculate study time statistics
 const calculateStudyTimeStats = (performanceData: any[]) => {
+  interface ProductiveDay {
+    date: string;
+    studyTimeMinutes: number;
+  }
+  
+  // Initial stats object
   const stats = {
     totalStudyTimeMinutes: 0,
     averageDailyStudyTimeMinutes: 0,
-    mostProductiveDay: null,
-    studyTimeBySubject: {}
+    mostStudyTimeDay: "",
+    leastStudyTimeDay: "",
+    studyTimeByDay: {} as Record<string, number>,
+    studyTimeBySubject: {} as Record<string, number>,
+    mostProductiveDay: null as ProductiveDay | null
   };
   
   if (performanceData.length === 0) {
@@ -331,8 +375,9 @@ const calculateStudyTimeStats = (performanceData: any[]) => {
     stats.averageDailyStudyTimeMinutes = Math.round(stats.totalStudyTimeMinutes / uniqueDays.size);
   }
   
-  // Find most productive day
-  const dayMap = {};
+  // Time is cast as number for type safety
+  const dayMap: Record<string, number> = {};
+  
   performanceData.forEach(data => {
     const day = new Date(data.createdAt).toISOString().split('T')[0];
     if (!dayMap[day]) {
@@ -343,11 +388,13 @@ const calculateStudyTimeStats = (performanceData: any[]) => {
   
   let maxStudyTime = 0;
   Object.entries(dayMap).forEach(([day, time]) => {
-    if (time > maxStudyTime) {
-      maxStudyTime = time as number;
+    // Ensure time is treated as a number
+    const timeValue = time as number;
+    if (timeValue > maxStudyTime) {
+      maxStudyTime = timeValue;
       stats.mostProductiveDay = {
         date: day,
-        studyTimeMinutes: time
+        studyTimeMinutes: timeValue
       };
     }
   });
@@ -389,12 +436,27 @@ const groupStudyTimeByDay = (performanceData: any[]) => {
 
 // Helper function to calculate task completion statistics
 const calculateTaskCompletionStats = (studyPlan: any, examAttempts: any[]) => {
+  interface UpcomingTask {
+    task: string;
+    week: number;
+    day: number;
+    subject: string;
+  }
+  
+  interface CompletedTask {
+    task: string;
+    score: number;
+    date: Date;
+    subject: string;
+  }
+  
+  // Initial stats object
   const stats = {
     totalTasks: 0,
     completedTasks: 0,
     completionRate: 0,
-    upcomingTasks: [],
-    recentlyCompletedTasks: []
+    upcomingTasks: [] as UpcomingTask[],
+    recentlyCompletedTasks: [] as CompletedTask[]
   };
   
   if (!studyPlan) {
@@ -404,7 +466,7 @@ const calculateTaskCompletionStats = (studyPlan: any, examAttempts: any[]) => {
   // Count tasks in study plan
   let totalTasks = 0;
   let completedTasks = 0;
-  const upcomingTasks = [];
+  const upcomingTasks: UpcomingTask[] = [];
   
   // Process weeks in study plan
   if (studyPlan.weeks && studyPlan.weeks.length > 0) {
@@ -446,7 +508,7 @@ const calculateTaskCompletionStats = (studyPlan: any, examAttempts: any[]) => {
   stats.recentlyCompletedTasks = examAttempts
     .slice(0, 5)
     .map(attempt => ({
-      task: `Completed ${attempt.exam.title}`,
+      task: `Completed ${attempt.exam.title} exam`,
       score: Math.round((attempt.correctAnswers / attempt.totalQuestions) * 100),
       date: attempt.createdAt,
       subject: attempt.exam.subject || 'General'

@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import stripeService from '../services/stripe.service';
+import Stripe from 'stripe';
 
+// Add PayoutStatus type
+type PayoutStatus = 'paid' | 'pending' | 'in_transit' | 'canceled' | 'failed';
+
+// Add Payout Status type
 /**
  * Initialize the weekly payout schedule
  * This should be called when the server starts
@@ -84,7 +89,7 @@ export const getPayouts = async (req: Request, res: Response) => {
     
     const payouts = await stripeService.listPayouts(
       Number(limit), 
-      status as Stripe.Payout.Status
+      status ? (status as 'canceled' | 'pending' | 'failed' | 'paid') : undefined
     );
     
     return res.status(200).json({
@@ -228,11 +233,184 @@ export const getPayoutScheduleStatus = async (req: Request, res: Response) => {
   }
 };
 
+// Get Stripe account status
+export const getStripeAccountStatus = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const accountStatus = await stripeService.getPayoutSettings();
+    return res.status(200).json(accountStatus);
+  } catch (error: any) {
+    console.error('Error getting Stripe account status:', error);
+    return res.status(500).json({ 
+      message: 'Failed to get Stripe account status',
+      error: error.message
+    });
+  }
+};
+
+// Create a Stripe account for connected accounts
+export const createStripeAccount = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // This would need to be implemented in your stripe service
+    // Example placeholder for now
+    return res.status(200).json({
+      success: true,
+      message: 'Stripe account creation initiated',
+      accountId: 'placeholder_account_id'
+    });
+  } catch (error: any) {
+    console.error('Error creating Stripe account:', error);
+    return res.status(500).json({ 
+      message: 'Failed to create Stripe account',
+      error: error.message
+    });
+  }
+};
+
+// Onboard a Stripe connected account
+export const onboardStripeAccount = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // This would need to be implemented in your stripe service
+    // Example placeholder for now
+    return res.status(200).json({
+      success: true,
+      message: 'Stripe account onboarding initiated',
+      onboardingUrl: 'https://connect.stripe.com/onboarding/placeholder'
+    });
+  } catch (error: any) {
+    console.error('Error onboarding Stripe account:', error);
+    return res.status(500).json({ 
+      message: 'Failed to initiate onboarding',
+      error: error.message
+    });
+  }
+};
+
+// Get balance for the account
+export const getBalance = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // Example placeholder implementation
+    return res.status(200).json({
+      success: true,
+      available: [{ amount: 0, currency: 'usd' }],
+      pending: [{ amount: 0, currency: 'usd' }]
+    });
+  } catch (error: any) {
+    console.error('Error getting balance:', error);
+    return res.status(500).json({ 
+      message: 'Failed to get balance',
+      error: error.message
+    });
+  }
+};
+
+// Get payout history
+export const getPayoutHistory = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const limit = parseInt(req.query.limit as string) || 10;
+    const status = req.query.status as PayoutStatus | undefined;
+
+    const payouts = await stripeService.listPayouts(limit, status as any);
+    return res.status(200).json({
+      success: true,
+      data: payouts.data
+    });
+  } catch (error: any) {
+    console.error('Error getting payout history:', error);
+    return res.status(500).json({ 
+      message: 'Failed to get payout history',
+      error: error.message
+    });
+  }
+};
+
+// Get all connected accounts (admin only)
+export const getAllConnectedAccounts = async (req: Request, res: Response) => {
+  try {
+    // Only admins can access this endpoint (already checked by middleware)
+    // Example placeholder implementation
+    return res.status(200).json({
+      success: true,
+      accounts: []
+    });
+  } catch (error: any) {
+    console.error('Error getting connected accounts:', error);
+    return res.status(500).json({ 
+      message: 'Failed to get connected accounts',
+      error: error.message
+    });
+  }
+};
+
+// Create a transfer to a connected account (admin only)
+export const createTransfer = async (req: Request, res: Response) => {
+  try {
+    // Only admins can access this endpoint (already checked by middleware)
+    const { accountId, amount, description } = req.body;
+    
+    if (!accountId || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account ID and amount are required'
+      });
+    }
+
+    // Example placeholder implementation
+    return res.status(200).json({
+      success: true,
+      message: 'Transfer initiated',
+      transfer: {
+        id: 'placeholder_transfer_id',
+        amount,
+        description,
+        destination: accountId
+      }
+    });
+  } catch (error: any) {
+    console.error('Error creating transfer:', error);
+    return res.status(500).json({ 
+      message: 'Failed to create transfer',
+      error: error.message
+    });
+  }
+};
+
 export default {
   initializePayoutSchedule,
   createManualPayout,
   getPayouts,
   getPayoutDetails,
   cancelPendingPayout,
-  getPayoutScheduleStatus
+  getPayoutScheduleStatus,
+  getStripeAccountStatus,
+  createStripeAccount,
+  onboardStripeAccount,
+  getBalance,
+  getPayoutHistory,
+  getAllConnectedAccounts,
+  createTransfer
 }; 

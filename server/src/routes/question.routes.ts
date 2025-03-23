@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import * as questionController from '../controllers/question.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { protect, authorize } from '../middleware/auth.middleware';
 import { checkTrialMiddleware, checkSubscriptionMiddleware } from '../middleware/subscription.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(protect);
 
 // Routes accessible during trial period
 // Get limited practice questions (trial users get limited questions)
@@ -26,8 +26,8 @@ router.get('/unlimited', checkSubscriptionMiddleware, questionController.getUnli
 router.get('/analytics', checkSubscriptionMiddleware, questionController.getQuestionAnalytics);
 
 // Admin routes
-router.post('/', authMiddleware, questionController.createQuestion);
-router.put('/:questionId', authMiddleware, questionController.updateQuestion);
-router.delete('/:questionId', authMiddleware, questionController.deleteQuestion);
+router.post('/', authorize('admin'), questionController.createQuestion);
+router.put('/:questionId', authorize('admin'), questionController.updateQuestion);
+router.delete('/:questionId', authorize('admin'), questionController.deleteQuestion);
 
 export default router; 

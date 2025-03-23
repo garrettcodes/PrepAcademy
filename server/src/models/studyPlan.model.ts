@@ -8,23 +8,23 @@ interface Task {
 
 interface Recommendation {
   subject: string;
-  subtopics: string[];
-  resources: string[];
+  subtopics: string[] | Array<string>;
+  resources: string[] | Array<string>;
   priority: string;
 }
 
 export interface IStudyPlan extends Document {
   userId: mongoose.Types.ObjectId;
-  dailyGoals: Task[];
-  weeklyGoals: Task[];
+  dailyGoals: Task[] | Array<Task>;
+  weeklyGoals: Task[] | Array<Task>;
   progress: number;
-  weakAreas: string[];
-  masteredAreas: string[];
-  strugglingAreas: string[];
-  recommendations: Recommendation[];
-  completedTopics: string[];
+  weakAreas: string[] | Array<string>;
+  masteredAreas: string[] | Array<string>;
+  strugglingAreas: string[] | Array<string>;
+  recommendations: Recommendation[] | Array<Recommendation>;
+  completedTopics: string[] | Array<string>;
   overallProgress: number;
-  learningStyleRecommendations: string[];
+  learningStyleRecommendations: string[] | Array<string>;
 }
 
 const StudyPlanSchema: Schema = new Schema(

@@ -1,5 +1,12 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface Comment {
+  _id?: mongoose.Types.ObjectId;
+  user: mongoose.Types.ObjectId;
+  text: string;
+  createdAt: Date;
+}
+
 export interface ISharedNote extends Document {
   title: string;
   content: string;
@@ -7,15 +14,11 @@ export interface ISharedNote extends Document {
   studyGroup?: mongoose.Types.ObjectId;
   subject: string;
   topic: string;
-  tags: string[];
+  tags: string[] | Array<string>;
   visibility: 'public' | 'private' | 'group';
   upvotes: mongoose.Types.ObjectId[];
   downvotes: mongoose.Types.ObjectId[];
-  comments: {
-    user: mongoose.Types.ObjectId;
-    text: string;
-    createdAt: Date;
-  }[];
+  comments: Comment[] | Array<Comment>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,18 +66,16 @@ const SharedNoteSchema: Schema = new Schema(
       enum: ['public', 'private', 'group'],
       default: 'private',
     },
-    upvotes: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    downvotes: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
+    upvotes: {
+      type: [Schema.Types.ObjectId],
+      default: [],
+      ref: 'User'
+    },
+    downvotes: {
+      type: [Schema.Types.ObjectId],
+      default: [],
+      ref: 'User'
+    },
     comments: [
       {
         user: {

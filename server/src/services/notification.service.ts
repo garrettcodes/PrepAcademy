@@ -61,7 +61,7 @@ export const getUnreadNotifications = async (userId: mongoose.Types.ObjectId): P
   }
 };
 
-// Mark notification as read
+// Mark a notification as read
 export const markNotificationAsRead = async (
   notificationId: mongoose.Types.ObjectId,
   userId: mongoose.Types.ObjectId
@@ -76,7 +76,7 @@ export const markNotificationAsRead = async (
       return false;
     }
 
-    notification.isRead = true;
+    notification.read = true;
     await notification.save();
 
     return true;

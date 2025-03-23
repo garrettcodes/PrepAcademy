@@ -18,6 +18,7 @@ const ManageSubscriptionPage: React.FC = () => {
   const [usageStatsError, setUsageStatsError] = useState<string | null>(null);
   const { subscriptionStatus, isSubscribed, isTrialActive, trialDaysLeft, isLoading, fetchSubscriptionStatus } = useSubscription();
   const navigate = useNavigate();
+  const [upgrading, setUpgrading] = useState<string | null>(null);
 
   // Fetch available plans
   useEffect(() => {

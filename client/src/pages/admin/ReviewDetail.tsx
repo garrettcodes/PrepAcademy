@@ -92,13 +92,12 @@ const ReviewDetail: React.FC = () => {
     }
   };
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (reviewDetail?.review.contentType === 'question') {
-      setUpdatedContent({
-        ...updatedContent,
-        [e.target.name]: e.target.value
-      });
-    }
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setUpdatedContent((prev: any) => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleOptionChange = (index: number, value: string) => {

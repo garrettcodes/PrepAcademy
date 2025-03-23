@@ -1,0 +1,84 @@
+export const voteOnSharedNote = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?._id;
+    const noteId = req.params.id;  // Changed from noteId to id to match route
+    const { voteType } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    if (!['upvote', 'downvote'].includes(voteType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vote type must be either "upvote" or "downvote"',
+      });
+    }
+
+    const note = await SharedNote.findById(noteId);
+
+    if (!note) {
+      return res.status(404).json({
+        success: false,
+        message: 'Note not found',
+      });
+    }
+
+    // Check access permissions
+    if (note.visibility === 'private' && note.author.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to vote on this note',
+      });
+    }
+
+    if (note.visibility === 'group') {
+      // Check if user is a member of the group
+      const group = await StudyGroup.findById(note.studyGroup);
+      
+      const userObjectId = toObjectId(userId.toString());
+      if (!group || !group.members.some(memberId => memberId.equals(userObjectId))) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to vote on this note',
+        });
+      }
+    }
+
+    // Check if user is trying to vote on their own note
+    if (note.author.toString() === userId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot vote on your own note',
+      });
+    }
+
+    // Remove any existing votes by this user
+    const userObjectId = toObjectId(userId.toString());
+    note.upvotes = note.upvotes.filter(id => !id.equals(userObjectId));
+    note.downvotes = note.downvotes.filter(id => !id.equals(userObjectId));
+
+    // Add the new vote
+    if (voteType === 'upvote') {
+      note.upvotes.push(userObjectId);
+    } else {
+      note.downvotes.push(userObjectId);
+    }
+
+    await note.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Note ${voteType}d successfully`,
+      data: {
+        upvotes: note.upvotes.length,
+        downvotes: note.downvotes.length,
+      },
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}; 

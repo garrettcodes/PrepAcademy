@@ -1,7 +1,41 @@
 import { Request, Response } from 'express';
 import Badge from '../models/badge.model';
 import User from '../models/user.model';
+import mongoose from 'mongoose';
 import PerformanceData from '../models/performanceData.model';
+
+// Extend the criteria interface to match what's used in the controller
+interface ExtendedCriteria {
+  type: string;
+  subject?: string;
+  score?: number;
+  questionCount?: number;
+  action?: string;
+  threshold?: number;
+}
+
+// Extend the Badge interface to include the additional fields used
+interface ExtendedBadge extends mongoose.Document {
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  type?: string;
+  criteria: ExtendedCriteria;
+  rarity: string;
+  requiredScore?: number;
+  requiredTasks?: string[] | Array<string>;
+  subject?: string;
+}
+
+// Extend User to include the streak property
+interface ExtendedUser extends mongoose.Document {
+  name: string;
+  email: string;
+  streak?: number;
+  badges: mongoose.Types.ObjectId[];
+  save(): Promise<this>;
+}
 
 // Get all badges
 export const getAllBadges = async (req: Request, res: Response) => {
@@ -17,6 +51,10 @@ export const getAllBadges = async (req: Request, res: Response) => {
 // Get user badges
 export const getUserBadges = async (req: Request, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+    
     const userId = req.user.userId;
     const user = await User.findById(userId).populate('badges');
     
@@ -31,88 +69,87 @@ export const getUserBadges = async (req: Request, res: Response) => {
   }
 };
 
-// Check and award badges based on performance
+// Check if a user is eligible for badges
 export const checkBadgeEligibility = async (userId: string, subject?: string, score?: number) => {
   try {
-    // Get user
-    const user = await User.findById(userId).populate('badges');
+    const user = await User.findById(userId) as ExtendedUser;
     
     if (!user) {
-      console.error('User not found for badge check');
-      return null;
+      return [];
     }
+
+    // Get all badges
+    const allBadges = await Badge.find() as ExtendedBadge[];
     
-    // Get available badges
-    const allBadges = await Badge.find();
-    const userBadgeIds = user.badges.map(badge => badge._id.toString());
-    
-    // Filter badges the user doesn't have yet
+    // Filter out badges the user already has
+    const userBadgeIds = user.badges.map(badge => badge.toString());
     const eligibleBadges = allBadges.filter(badge => !userBadgeIds.includes(badge._id.toString()));
     
-    // Array to store newly earned badges
-    const newlyEarnedBadges = [];
+    if (eligibleBadges.length === 0) {
+      return [];
+    }
+
+    // Get performance data for criteria checking
+    const performanceData = await PerformanceData.find({ userId });
     
     // Check each badge's criteria
     for (const badge of eligibleBadges) {
       let awarded = false;
       
-      switch (badge.criteria.type) {
-        case 'subject-mastery':
-          // Subject mastery badges are awarded when a user achieves 100% in a specific subject
-          if (subject && score === 100 && badge.criteria.subject === subject) {
+      // Check criteria based on badge type
+      switch (badge.type || badge.category) {
+        case 'achievement': {
+          // Achievement badges based on specific milestones
+          if (badge.criteria.action === 'complete_questions') {
+            const count = performanceData.length;
+            if (badge.criteria.threshold && count >= badge.criteria.threshold) {
+              awarded = true;
+            }
+          } else if (badge.criteria.action === 'streak' && user.streak && badge.criteria.threshold && user.streak >= badge.criteria.threshold) {
             awarded = true;
           }
           break;
-          
-        case 'question-count':
-          // Question count badges are awarded after answering a certain number of questions
-          if (badge.criteria.questionCount) {
-            const questionCount = await PerformanceData.countDocuments({ userId });
-            if (questionCount >= badge.criteria.questionCount) {
-              awarded = true;
+        }
+        
+        case 'mastery': {
+          // Mastery badges based on subject proficiency
+          if (subject && subject === badge.criteria.subject) {
+            const subjectData = performanceData.filter(p => p.subject === subject);
+            
+            if (badge.criteria.threshold && subjectData.length >= badge.criteria.threshold) {
+              const avgScore = subjectData.reduce((sum, data) => sum + data.score, 0) / subjectData.length;
+              
+              if (badge.criteria.score !== undefined && avgScore >= badge.criteria.score) {
+                awarded = true;
+              }
             }
           }
           break;
-          
-        case 'perfect-score':
-          // Perfect score badges are awarded after achieving perfect scores
-          if (score === 100) {
-            const perfectScores = await PerformanceData.countDocuments({ 
-              userId, 
-              score: 100 
-            });
-            
-            // Default to 5 perfect scores if not specified in criteria
-            const requiredPerfectScores = badge.criteria.questionCount || 5;
-            
-            if (perfectScores >= requiredPerfectScores) {
-              awarded = true;
-            }
-          }
-          break;
-          
-        case 'point-milestone':
-          // Point milestone badges are awarded at certain point thresholds
-          if (badge.criteria.score && user.points >= badge.criteria.score) {
+        }
+        
+        case 'performance': {
+          // Performance badges based on scores
+          if (badge.criteria.score !== undefined && score && score >= badge.criteria.score) {
             awarded = true;
           }
           break;
+        }
       }
       
       // Award badge if criteria met
       if (awarded) {
+        // Add badge to user's collection
         await User.findByIdAndUpdate(
           userId,
           { $addToSet: { badges: badge._id } }
         );
-        newlyEarnedBadges.push(badge);
       }
     }
     
-    return newlyEarnedBadges;
+    return eligibleBadges;
   } catch (error) {
     console.error('Check badge eligibility error:', error);
-    return null;
+    return [];
   }
 };
 

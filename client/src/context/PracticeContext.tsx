@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import axios from 'axios';
-
-// Define API URL based on environment
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+import { API_URL } from '../config';
 
 // Define interfaces
 interface Question {
@@ -36,6 +34,8 @@ interface ExamWithQuestions extends Exam {
 }
 
 interface ExamResult {
+  _id?: string;
+  examId?: string;
   score: number;
   subjectScores: Record<string, number>;
   formatScores: Record<string, number>;
@@ -73,7 +73,7 @@ interface AnswerResult {
 }
 
 // Define practice context interface
-interface PracticeContextType {
+export interface PracticeContextType {
   questions: Question[];
   currentQuestion: Question | null;
   exams: Exam[];
@@ -82,7 +82,12 @@ interface PracticeContextType {
   lastAnswerResult: AnswerResult | null;
   loading: boolean;
   error: string | null;
-  fetchQuestions: (subject?: string, difficulty?: string, format?: string, limit?: number) => Promise<void>;
+  fetchQuestions: (params: {
+    subject?: string;
+    difficulty?: string;
+    format?: string;
+    limit?: number;
+  }) => Promise<void>;
   fetchExams: () => Promise<void>;
   fetchExamById: (examId: string) => Promise<void>;
   submitAnswer: (questionId: string, selectedAnswer: string, timeSpent?: number) => Promise<AnswerResult>;
@@ -95,7 +100,7 @@ interface PracticeContextType {
 }
 
 // Create practice context
-const PracticeContext = createContext<PracticeContextType | undefined>(undefined);
+export const PracticeContext = createContext<PracticeContextType | undefined>(undefined);
 
 // Create practice provider component
 export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -109,20 +114,25 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<string | null>(null);
 
   // Fetch questions
-  const fetchQuestions = async (subject?: string, difficulty?: string, format?: string, limit?: number) => {
+  const fetchQuestions = async (params: {
+    subject?: string;
+    difficulty?: string;
+    format?: string;
+    limit?: number;
+  }) => {
     try {
       setLoading(true);
       let url = `${API_URL}/questions`;
       
       // Add query parameters if provided
-      const params = new URLSearchParams();
-      if (subject) params.append('subject', subject);
-      if (difficulty) params.append('difficulty', difficulty);
-      if (format) params.append('format', format);
-      if (limit) params.append('limit', limit.toString());
+      const queryParams = new URLSearchParams();
+      if (params.subject) queryParams.append('subject', params.subject);
+      if (params.difficulty) queryParams.append('difficulty', params.difficulty);
+      if (params.format) queryParams.append('format', params.format);
+      if (params.limit) queryParams.append('limit', params.limit.toString());
       
-      if (params.toString()) {
-        url += `?${params.toString()}`;
+      if (queryParams.toString()) {
+        url += `?${queryParams.toString()}`;
       }
       
       const response = await axios.get(url);
@@ -318,38 +328,39 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  // Include all the context values
+  const contextValue: PracticeContextType = {
+    questions,
+    currentQuestion,
+    exams,
+    currentExam,
+    examResult,
+    lastAnswerResult,
+    loading,
+    error,
+    fetchQuestions,
+    fetchExams,
+    fetchExamById,
+    submitAnswer,
+    submitExam,
+    getNextAdaptiveQuestion,
+    resetCurrentQuestion,
+    resetExamResult,
+    clearError,
+    fetchExamDetails,
+  };
+
   return (
-    <PracticeContext.Provider
-      value={{
-        questions,
-        currentQuestion,
-        exams,
-        currentExam,
-        examResult,
-        lastAnswerResult,
-        loading,
-        error,
-        fetchQuestions,
-        fetchExams,
-        fetchExamById,
-        submitAnswer,
-        submitExam,
-        getNextAdaptiveQuestion,
-        resetCurrentQuestion,
-        resetExamResult,
-        clearError,
-        fetchExamDetails,
-      }}
-    >
+    <PracticeContext.Provider value={contextValue}>
       {children}
     </PracticeContext.Provider>
   );
 };
 
-// Create hook for using practice context
+// Custom hook for using practice context
 export const usePractice = (): PracticeContextType => {
   const context = useContext(PracticeContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('usePractice must be used within a PracticeProvider');
   }
   return context;

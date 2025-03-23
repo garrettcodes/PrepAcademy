@@ -1,19 +1,25 @@
 import { Router } from 'express';
 import * as subscriptionController from '../controllers/subscription.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { protect, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Routes requiring authentication
-router.post('/trial', authMiddleware, subscriptionController.startFreeTrial);
+// Public routes (no auth required)
 router.get('/plans', subscriptionController.getSubscriptionPlans);
-router.post('/create', authMiddleware, subscriptionController.createSubscription);
-router.post('/success', authMiddleware, subscriptionController.handleSubscriptionSuccess);
-router.get('/current', authMiddleware, subscriptionController.getCurrentSubscription);
-router.post('/cancel', authMiddleware, subscriptionController.cancelSubscription);
-router.post('/customer-portal', authMiddleware, subscriptionController.createCustomerPortal);
-
-// Webhook endpoint doesn't need authentication as it's called by Stripe
 router.post('/webhook', subscriptionController.handleStripeWebhook);
+
+// Routes requiring authentication
+router.use(protect);
+
+// User subscription management
+router.get('/status', subscriptionController.checkSubscriptionStatus);
+router.post('/create-checkout-session', subscriptionController.createSubscription);
+router.post('/create-portal-session', subscriptionController.getCustomerPortalSession);
+router.post('/cancel', subscriptionController.cancelSubscription);
+
+// Admin routes
+router.get('/admin/subscriptions', authorize('admin'), subscriptionController.getSubscriptionPlans);
+router.get('/admin/metrics', authorize('admin'), subscriptionController.checkSubscriptionStatuses);
+router.post('/admin/extend/:userId', authorize('admin'), subscriptionController.createSubscription);
 
 export default router; 

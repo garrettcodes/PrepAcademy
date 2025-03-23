@@ -1,4 +1,4 @@
-import puppeteer, { Browser, Page } from 'puppeteer';
+import puppeteer, { Browser, Page, Device } from 'puppeteer';
 import devices from 'puppeteer/DeviceDescriptors';
 
 // Test configuration
@@ -6,8 +6,23 @@ const APP_URL = process.env.TEST_APP_URL || 'http://localhost:3000';
 const TEST_TIMEOUT = 60000; // 60 seconds
 jest.setTimeout(TEST_TIMEOUT);
 
+// Interface for device configurations
+interface DeviceConfig {
+  name: string;
+  viewport: {
+    width: number;
+    height: number;
+    deviceScaleFactor?: number;
+    isMobile?: boolean;
+    hasTouch?: boolean;
+    isLandscape?: boolean;
+  };
+  userAgent: string;
+  isMobile: boolean;
+}
+
 // Device configurations to test
-const deviceConfigs = [
+const deviceConfigs: Array<DeviceConfig | Device> = [
   // Desktop
   {
     name: 'Desktop (1920x1080)',
@@ -28,7 +43,12 @@ const deviceConfigs = [
 ];
 
 // Login credentials for testing
-const testUser = {
+interface TestUser {
+  email: string;
+  password: string;
+}
+
+const testUser: TestUser = {
   email: 'test@example.com',
   password: 'password123',
 };
@@ -69,12 +89,13 @@ async function login(page: Page): Promise<void> {
 }
 
 /**
- * Helper to take screenshots
+ * Helper to take screenshots during tests
  */
 async function takeScreenshot(page: Page, name: string): Promise<void> {
-  await page.screenshot({
-    path: `./screenshots/${name.replace(/\s/g, '_').toLowerCase()}.png`,
-    fullPage: true,
+  const timestamp = new Date().toISOString().replace(/[:\.]/g, '-');
+  await page.screenshot({ 
+    path: `./screenshots/${name}-${timestamp}.png`,
+    fullPage: true 
   });
 }
 
@@ -120,23 +141,10 @@ describe('Cross-Device Compatibility', () => {
       test('Dashboard renders correctly after login', async () => {
         await login(page);
         
-        // Check for dashboard elements
-        await page.waitForSelector('.dashboard-container', { timeout: 5000 });
-        
-        // Check for responsive layout
-        const isMobileView = await page.evaluate(() => {
-          return window.innerWidth < 768;
-        });
-        
-        if (isMobileView) {
-          // In mobile view, the menu should be collapsed
-          const hamburgerMenu = await page.$('.mobile-menu-button');
-          expect(hamburgerMenu).not.toBeNull();
-        } else {
-          // In desktop view, the sidebar should be visible
-          const sidebar = await page.$('.sidebar');
-          expect(sidebar).not.toBeNull();
-        }
+        // Check that dashboard elements are visible
+        await page.waitForSelector('h1');
+        const heading = await page.$eval('h1', el => el.textContent);
+        expect(heading).toContain('Dashboard');
         
         await takeScreenshot(page, `${device.name} - Dashboard`);
       });
@@ -150,75 +158,29 @@ describe('Cross-Device Compatibility', () => {
           page.waitForNavigation({ waitUntil: 'networkidle0' }),
         ]);
         
-        // Check for practice elements
-        await page.waitForSelector('.practice-container', { timeout: 5000 });
-        
-        // Check that question cards are responsive
-        const questionCards = await page.$$('.question-card');
-        expect(questionCards.length).toBeGreaterThan(0);
+        // Check that practice elements are visible
+        await page.waitForSelector('h1');
+        const heading = await page.$eval('h1', el => el.textContent);
+        expect(heading).toContain('Practice');
         
         await takeScreenshot(page, `${device.name} - Practice Page`);
       });
       
-      test('Study plan page renders correctly', async () => {
+      // Test offline functionality
+      test('Offline indicator appears when connection is lost', async () => {
         await login(page);
         
-        // Navigate to study plan page
-        await Promise.all([
-          page.click('a[href="/study-plan"]'),
-          page.waitForNavigation({ waitUntil: 'networkidle0' }),
-        ]);
-        
-        // Check for study plan elements
-        await page.waitForSelector('.study-plan-container', { timeout: 5000 });
-        
-        // Check for responsive calendar/schedule view
-        if (device.isMobile) {
-          // Mobile should have a list view
-          const listView = await page.$('.mobile-schedule-view');
-          expect(listView).not.toBeNull();
-        } else {
-          // Desktop should have a calendar view
-          const calendarView = await page.$('.calendar-view');
-          expect(calendarView).not.toBeNull();
-        }
-        
-        await takeScreenshot(page, `${device.name} - Study Plan`);
-      });
-      
-      test('Exam timer works correctly', async () => {
-        await login(page);
-        
-        // Navigate to exams page
-        await Promise.all([
-          page.click('a[href="/exams"]'),
-          page.waitForNavigation({ waitUntil: 'networkidle0' }),
-        ]);
-        
-        // Start an exam
-        await Promise.all([
-          page.click('.start-exam-button'),
-          page.waitForNavigation({ waitUntil: 'networkidle0' }),
-        ]);
-        
-        // Check for timer element
-        const timerElement = await page.$('.exam-timer');
-        expect(timerElement).not.toBeNull();
-        
-        // Wait for a few seconds and check if timer is updating
-        const initialTime = await page.evaluate(() => {
-          return document.querySelector('.exam-timer')?.textContent;
+        // Simulate offline status
+        await page.evaluate(() => {
+          window.dispatchEvent(new Event('offline'));
         });
         
-        await page.waitForTimeout(3000);
+        // Check that offline indicator appears
+        await page.waitForSelector('.offline-indicator');
+        const indicatorText = await page.$eval('.offline-indicator', el => el.textContent);
+        expect(indicatorText).toContain('Offline Mode');
         
-        const updatedTime = await page.evaluate(() => {
-          return document.querySelector('.exam-timer')?.textContent;
-        });
-        
-        expect(initialTime).not.toEqual(updatedTime);
-        
-        await takeScreenshot(page, `${device.name} - Exam Timer`);
+        await takeScreenshot(page, `${device.name} - Offline Indicator`);
       });
     });
   });

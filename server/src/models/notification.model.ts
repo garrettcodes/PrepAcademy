@@ -4,10 +4,14 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface INotification extends Document {
   userId: mongoose.Types.ObjectId;
   type: string;
+  title: string;
   message: string;
-  details: any;
   read: boolean;
+  actionLink?: string;
+  priority: string;
+  relatedIds?: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
   createdAt: Date;
+  expiresAt?: Date;
 }
 
 // Create notification schema
@@ -23,22 +27,38 @@ const NotificationSchema: Schema = new Schema(
       enum: ['taskCompleted', 'milestone', 'reminder', 'achievement', 'system'],
       required: [true, 'Please provide a notification type'],
     },
+    title: {
+      type: String,
+      required: [true, 'Please provide a notification title'],
+      trim: true,
+    },
     message: {
       type: String,
       required: [true, 'Please provide a notification message'],
       trim: true,
     },
-    details: {
-      type: Schema.Types.Mixed,
-      default: {},
-    },
     read: {
       type: Boolean,
       default: false,
     },
+    actionLink: {
+      type: String,
+    },
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      required: [true, 'Please provide a notification priority'],
+    },
+    relatedIds: {
+      type: [Schema.Types.ObjectId],
+      ref: 'User',
+    },
     createdAt: {
       type: Date,
       default: Date.now,
+    },
+    expiresAt: {
+      type: Date,
     },
   }
 );
@@ -47,5 +67,7 @@ const NotificationSchema: Schema = new Schema(
 NotificationSchema.index({ userId: 1 });
 
 // Create and export the model
-const Notification = mongoose.model<INotification>('Notification', NotificationSchema);
-module.exports = Notification; 
+export const Notification = mongoose.model<INotification>('Notification', NotificationSchema);
+
+// For backward compatibility
+export default Notification; 

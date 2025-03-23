@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useParentAuth } from '../../context/ParentAuthContext';
 
-const ParentRegister = () => {
+const ParentRegister: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +22,7 @@ const ParentRegister = () => {
     };
   }, [error, clearError]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError('');
 
@@ -44,8 +44,9 @@ const ParentRegister = () => {
 
     try {
       await register(name, email, password, phone || undefined);
-    } catch (err) {
+    } catch (err: unknown) {
       // Error is handled in auth context
+      console.error('Registration error:', err);
     }
   };
 

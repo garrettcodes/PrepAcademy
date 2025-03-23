@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 import { useOffline } from './OfflineContext';
@@ -25,7 +26,7 @@ const OnboardingContext = createContext<OnboardingContextType | undefined>(undef
 
 export const useOnboarding = () => {
   const context = useContext(OnboardingContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useOnboarding must be used within an OnboardingProvider');
   }
   return context;
@@ -104,25 +105,26 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       
       // Update the steps with the completed status from the backend
       if (response.data.onboarding && response.data.onboarding.steps) {
-        setSteps((prevSteps) =>
-          prevSteps.map((step) => ({
+        setSteps((prevSteps) => {
+          const updatedSteps = prevSteps.map((step) => ({
             ...step,
             completed:
               response.data.onboarding.steps[step.id] || step.completed,
-          }))
-        );
+          }));
         
-        // Set the current step to the first incomplete step
-        const firstIncompleteStepIndex = prevSteps.findIndex(
-          (step) => !response.data.onboarding.steps[step.id]
-        );
-        
-        if (firstIncompleteStepIndex !== -1) {
-          setCurrentStep(firstIncompleteStepIndex);
-        } else {
-          // All steps are completed
-          setCurrentStep(prevSteps.length - 1);
-        }
+          // Set the current step to the first incomplete step
+          const firstIncompleteStepIndex = updatedSteps.findIndex(
+            (step) => !response.data.onboarding.steps[step.id]
+          );
+          
+          if (firstIncompleteStepIndex !== -1) {
+            setCurrentStep(firstIncompleteStepIndex);
+          } else {
+            setCurrentStep(updatedSteps.length - 1);
+          }
+          
+          return updatedSteps;
+        });
       }
       
       setIsLoading(false);

@@ -8,6 +8,11 @@ import {
   deleteFeedback
 } from '../../services/feedbackService';
 
+// Define props interface
+interface FeedbackItemProps {
+  item: Feedback;
+}
+
 const AdminFeedbackList: React.FC = () => {
   const [feedbackItems, setFeedbackItems] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -43,34 +48,51 @@ const AdminFeedbackList: React.FC = () => {
       const result = await getAllFeedback(page, 10, filters);
       setFeedbackItems(result.feedback);
       setTotalPages(result.pages);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load feedback');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 
+        (err && typeof err === 'object' && 'response' in err && 
+         err.response && typeof err.response === 'object' && 
+         'data' in err.response && err.response.data && 
+         typeof err.response.data === 'object' && 
+         'message' in err.response.data && 
+         typeof err.response.data.message === 'string') 
+          ? err.response.data.message 
+          : 'Failed to load feedback';
+      
+      setError(errorMessage);
       console.error('Error fetching feedback:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Define event handler types
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    const newFilters = { ...filters };
-    
-    if (value === '') {
-      delete newFilters[name as keyof typeof filters];
-    } else {
-      newFilters[name as keyof typeof filters] = value;
-    }
-    
-    setFilters(newFilters);
-    setPage(1); // Reset to first page when filters change
+    setFilters({
+      ...filters,
+      [e.target.name]: e.target.value
+    });
+    setPage(1);
   };
 
+  // Define type for update form
+  interface UpdateFormData {
+    status: string;
+    priority: string;
+    adminNotes: string;
+    response: string;
+  }
+
   const handleUpdateChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
     setUpdateData({
       ...updateData,
-      [name]: value,
+      [e.target.name]: e.target.value
     });
+  };
+
+  // Add proper type for handleStopPropagation function
+  const handleStopPropagation = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
   };
 
   const handleUpdate = async (id: string) => {
@@ -102,28 +124,36 @@ const AdminFeedbackList: React.FC = () => {
         adminNotes: '',
         response: '',
       });
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update feedback');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 
+        (err && typeof err === 'object' && 'response' in err && 
+         err.response && typeof err.response === 'object' && 
+         'data' in err.response && err.response.data && 
+         typeof err.response.data === 'object' && 
+         'message' in err.response.data && 
+         typeof err.response.data.message === 'string') 
+          ? err.response.data.message 
+          : 'Failed to update feedback';
+      
+      setError(errorMessage);
       console.error('Error updating feedback:', err);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!id) return;
-    setActionLoading(true);
+  const handleDelete = async (id: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     
-    try {
-      await deleteFeedback(id);
-      setFeedbackItems(feedbackItems.filter(item => item._id !== id));
-      setShowDeleteConfirm(false);
-      setActiveItem(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete feedback');
-      console.error('Error deleting feedback:', err);
-    } finally {
-      setActionLoading(false);
+    if (window.confirm('Are you sure you want to delete this feedback?')) {
+      try {
+        await deleteFeedback(id);
+        setFeedbackItems(feedbackItems.filter(item => item._id !== id));
+        setActiveItem(null);
+      } catch (error: unknown) {
+        console.error('Error deleting feedback:', error);
+        setError('Failed to delete feedback');
+      }
     }
   };
 
@@ -182,9 +212,15 @@ const AdminFeedbackList: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
   };
 
   if (loading && page === 1) {
@@ -348,7 +384,7 @@ const AdminFeedbackList: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(item.createdAt).toLocaleDateString()}
+                        {formatDate(item.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
@@ -529,13 +565,16 @@ const AdminFeedbackList: React.FC = () => {
                             
                             <div className="flex justify-end">
                               <button
-                                onClick={() => setShowDeleteConfirm(false)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDeleteConfirm(false);
+                                }}
                                 className="mr-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                               >
                                 Cancel
                               </button>
                               <button
-                                onClick={() => handleDelete(item._id)}
+                                onClick={(e) => handleDelete(item._id, e)}
                                 disabled={actionLoading}
                                 className={`px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
                                   actionLoading ? 'opacity-70 cursor-not-allowed' : ''

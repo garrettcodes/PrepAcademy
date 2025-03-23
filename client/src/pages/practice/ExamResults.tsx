@@ -7,7 +7,7 @@ import { Pie, Bar, PolarArea, Radar } from 'react-chartjs-2';
 // UI components
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, RadialLinearScale, PointElement, LineElement);
@@ -54,10 +54,12 @@ const ExamResults: React.FC = () => {
   }, [id, fetchExamDetails]);
 
   useEffect(() => {
-    if (examResult && examResult.detailedBreakdown) {
+    if (examResult && (examResult as any).detailedBreakdown) {
       // Process question type breakdown
-      if (examResult.detailedBreakdown.questionTypes) {
-        const types = Object.entries(examResult.detailedBreakdown.questionTypes).map(([type, data]: [string, any]) => ({
+      const detailedBreakdown = (examResult as any).detailedBreakdown;
+      
+      if (detailedBreakdown.questionTypes) {
+        const types = Object.entries(detailedBreakdown.questionTypes).map(([type, data]: [string, any]) => ({
           type,
           correct: data.correct,
           total: data.total,
@@ -201,10 +203,12 @@ const ExamResults: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Exam Results</h1>
-        <Button onClick={() => navigate('/exams')}>Back to Exams</Button>
+    <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Exam Results</h1>
+        <StatusBadge variant="primary" className="text-sm">
+          {examResult?.examType || 'Practice Test'}
+        </StatusBadge>
       </div>
 
       {/* Summary Card */}
@@ -257,7 +261,7 @@ const ExamResults: React.FC = () => {
                 <div className="flex items-center justify-center h-60">
                   <div className="text-center">
                     <div className="mb-2">
-                      <Badge 
+                      <StatusBadge 
                         variant={
                           examResult.score >= 90 ? 'success' : 
                           examResult.score >= 70 ? 'warning' : 
@@ -270,7 +274,7 @@ const ExamResults: React.FC = () => {
                          examResult.score >= 70 ? 'Good' : 
                          examResult.score >= 60 ? 'Fair' : 
                          'Needs Improvement'}
-                      </Badge>
+                      </StatusBadge>
                     </div>
                     <p className="text-gray-600 mt-4">
                       {examResult.score >= 90 ? 'Outstanding performance! Keep up the excellent work.' : 
@@ -317,7 +321,7 @@ const ExamResults: React.FC = () => {
                         <td className="px-4 py-3">{subject}</td>
                         <td className="px-4 py-3 text-center">{score}%</td>
                         <td className="px-4 py-3 text-center">
-                          <Badge 
+                          <StatusBadge 
                             variant={
                               score >= 80 ? 'success' : 
                               score >= 60 ? 'warning' : 
@@ -325,7 +329,7 @@ const ExamResults: React.FC = () => {
                             }
                           >
                             {score >= 80 ? 'Strong' : score >= 60 ? 'Average' : 'Weak'}
-                          </Badge>
+                          </StatusBadge>
                         </td>
                       </tr>
                     ))}

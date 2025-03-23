@@ -1,19 +1,10 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../types';
 import User from '../models/user.model';
 import Question from '../models/question.model';
 import PerformanceData from '../models/performanceData.model';
 import { detectLearningStyle, getLearningStyleRecommendations } from '../utils/learningStyleDetector';
 import { generateStudyPlan } from '../utils/studyPlanGenerator';
-
-// Extend Request type to include user property
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    email?: string;
-    name?: string;
-    learningStyle?: string;
-  };
-}
 
 /**
  * Get the status of the user's mini-assessment
@@ -24,7 +15,7 @@ export const getMiniAssessmentStatus = async (req: AuthRequest, res: Response) =
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const user = await User.findById(userId);
@@ -57,7 +48,7 @@ export const getMiniAssessmentQuestions = async (req: AuthRequest, res: Response
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Get user to check if mini-assessment is due
@@ -80,7 +71,7 @@ export const getMiniAssessmentQuestions = async (req: AuthRequest, res: Response
 
     // Get a balanced set of questions in different formats
     const formats = ['text', 'diagram', 'audio', 'video', 'interactive'];
-    const questions = [];
+    const questions: any[] = [];
 
     // Get 3 questions for each format, total of 15 questions
     for (const format of formats) {
@@ -112,7 +103,7 @@ export const submitMiniAssessment = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     if (!answers || !Array.isArray(answers)) {

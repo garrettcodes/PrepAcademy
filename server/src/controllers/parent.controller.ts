@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import Parent, { IParent } from '../models/parent.model';
 import User from '../models/user.model';
 import { generateToken } from '../utils/jwt';
+import mongoose from 'mongoose';
+
+// Helper to convert string ID to ObjectId
+const toObjectId = (id: string) => new mongoose.Types.ObjectId(id);
 
 // Register a new parent
 export const register = async (req: Request, res: Response) => {
@@ -87,7 +91,14 @@ export const login = async (req: Request, res: Response) => {
 // Get current parent
 export const getCurrentParent = async (req: Request, res: Response) => {
   try {
-    const parent = await Parent.findById(req.user.userId);
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    const parent = await Parent.findById(userId);
     if (!parent) {
       return res.status(404).json({ message: 'Parent account not found' });
     }
@@ -111,7 +122,15 @@ export const getCurrentParent = async (req: Request, res: Response) => {
 export const linkToStudent = async (req: Request, res: Response) => {
   try {
     const { studentEmail } = req.body;
-    const parentId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const parentId = userId.toString();
+    const parentObjectId = toObjectId(parentId);
 
     // Find the student
     const student = await User.findOne({ email: studentEmail });
@@ -126,18 +145,19 @@ export const linkToStudent = async (req: Request, res: Response) => {
     }
 
     // Check if already linked
-    if (student.parents.includes(parentId) && parent.students.includes(student._id)) {
+    if (student.parents.some(pId => pId.equals(parentObjectId)) && 
+        parent.students.some(sId => sId.equals(student._id))) {
       return res.status(400).json({ message: 'Student already linked to this parent' });
     }
 
     // Add parent to student's parent list if not already there
-    if (!student.parents.includes(parentId)) {
-      student.parents.push(parentId);
+    if (!student.parents.some(pId => pId.equals(parentObjectId))) {
+      student.parents.push(parentObjectId);
       await student.save();
     }
 
     // Add student to parent's student list if not already there
-    if (!parent.students.includes(student._id)) {
+    if (!parent.students.some(sId => sId.equals(student._id))) {
       parent.students.push(student._id);
       await parent.save();
     }
@@ -152,17 +172,28 @@ export const linkToStudent = async (req: Request, res: Response) => {
 // Get student details
 export const getStudentDetails = async (req: Request, res: Response) => {
   try {
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const parentId = userId.toString();
     const { studentId } = req.params;
-    const parentId = req.user.userId;
 
     // Find the parent
-    const parent = await Parent.findById(parentId);
+    const parent = await Parent.findOne({ user: parentId });
+
     if (!parent) {
       return res.status(404).json({ message: 'Parent account not found' });
     }
 
+    // Convert studentId to ObjectId to ensure proper type comparison
+    const studentObjectId = toObjectId(studentId);
+
     // Check if the student is linked to this parent
-    if (!parent.students.includes(studentId)) {
+    if (!parent.students.some(id => id.equals(studentObjectId))) {
       return res.status(403).json({ message: 'Not authorized to view this student\'s data' });
     }
 
@@ -198,9 +229,14 @@ export const getStudentDetails = async (req: Request, res: Response) => {
 export const updateNotificationSettings = async (req: Request, res: Response) => {
   try {
     const { email, sms } = req.body;
-    const parentId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
 
-    const parent = await Parent.findById(parentId);
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const parent = await Parent.findById(userId);
     if (!parent) {
       return res.status(404).json({ message: 'Parent account not found' });
     }

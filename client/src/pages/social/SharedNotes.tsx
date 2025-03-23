@@ -34,7 +34,12 @@ const SharedNotes: React.FC = () => {
     
     try {
       if (activeTab === 'public') {
-        const response = await getPublicSharedNotes(page, 10, filters);
+        const response = await getPublicSharedNotes(
+          page, 
+          10, 
+          filters.subject, 
+          filters.topic
+        );
         setNotes(response.notes);
         setTotalPages(response.pages);
       } else {

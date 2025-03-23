@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import Onboarding from '../models/onboarding.model';
 import User from '../models/user.model';
+import mongoose from 'mongoose';
+
+// Helper to convert string ID to ObjectId
+const toObjectId = (id: string) => new mongoose.Types.ObjectId(id);
 
 // Initialize onboarding for a new user
 export const initializeOnboarding = async (userId: string) => {
@@ -28,13 +32,18 @@ export const initializeOnboarding = async (userId: string) => {
 // Get onboarding status
 export const getOnboardingStatus = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
     // Find or create onboarding record
     let onboarding = await Onboarding.findOne({ user: userId });
     
     if (!onboarding) {
-      onboarding = await initializeOnboarding(userId);
+      onboarding = await initializeOnboarding(userId.toString());
     }
     
     res.status(200).json({ 
@@ -50,7 +59,13 @@ export const getOnboardingStatus = async (req: Request, res: Response) => {
 // Update onboarding step
 export const updateOnboardingStep = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     const { step } = req.params;
     const { completed } = req.body;
     
@@ -65,7 +80,7 @@ export const updateOnboardingStep = async (req: Request, res: Response) => {
     let onboarding = await Onboarding.findOne({ user: userId });
     
     if (!onboarding) {
-      onboarding = await initializeOnboarding(userId);
+      onboarding = await initializeOnboarding(userId.toString());
     }
     
     // Update step
@@ -101,13 +116,18 @@ export const updateOnboardingStep = async (req: Request, res: Response) => {
 // Skip onboarding
 export const skipOnboarding = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
     // Find or create onboarding record
     let onboarding = await Onboarding.findOne({ user: userId });
     
     if (!onboarding) {
-      onboarding = await initializeOnboarding(userId);
+      onboarding = await initializeOnboarding(userId.toString());
     }
     
     // Mark as completed without completing all steps
@@ -129,7 +149,12 @@ export const skipOnboarding = async (req: Request, res: Response) => {
 // Reset onboarding
 export const resetOnboarding = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
     // Find onboarding record
     const onboarding = await Onboarding.findOne({ user: userId });

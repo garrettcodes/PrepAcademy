@@ -1,13 +1,26 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import StudyPlan from '../models/studyPlan.model';
 import User from '../models/user.model';
 import PerformanceData from '../models/performanceData.model';
+// Using require since the module uses module.exports
+const Notification = require('../models/notification.model');
+import { AuthRequest } from '../types';
 
-// Extend Request type to include user property
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-  };
+// Define proper interfaces for task objects
+interface Task {
+  _id?: mongoose.Types.ObjectId | string;
+  task: string;
+  status: string;
+  subject?: string;
+  dueDate?: Date;
+}
+
+// Define interface for notifications
+interface TaskNotification {
+  type: string;
+  message: string;
+  details: any;
 }
 
 // Get the user's study plan
@@ -16,7 +29,7 @@ export const getStudyPlan = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const studyPlan = await StudyPlan.findOne({ userId });
@@ -53,7 +66,7 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
     const { taskId, taskType, status } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     if (!taskId || !taskType || !status) {
@@ -91,9 +104,9 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
     let taskUpdated = false;
     
     if (taskType === 'daily') {
-      // Find and update the daily goal
+      // Find and update the daily goal with proper type checking
       const goalIndex = studyPlan.dailyGoals.findIndex(
-        goal => goal._id.toString() === taskId
+        (goal: Task) => goal._id && goal._id.toString() === taskId
       );
       
       if (goalIndex !== -1) {
@@ -107,9 +120,9 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
         taskUpdated = true;
       }
     } else {
-      // Find and update the weekly goal
+      // Find and update the weekly goal with proper type checking
       const goalIndex = studyPlan.weeklyGoals.findIndex(
-        goal => goal._id.toString() === taskId
+        (goal: Task) => goal._id && goal._id.toString() === taskId
       );
       
       if (goalIndex !== -1) {
@@ -145,8 +158,8 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
     // Save the updated study plan
     await studyPlan.save();
 
-    // Create notification payload
-    const notifications = [];
+    // Create notifications array for this update
+    const notifications: TaskNotification[] = [];
     
     // Add task completion notification
     if (isNewlyCompleted) {
@@ -174,9 +187,6 @@ export const updateTaskStatus = async (req: AuthRequest, res: Response) => {
 
     // Create notification in the database if enabled
     try {
-      // Import the notification model
-      const Notification = require('../models/notification.model');
-      
       // Create notifications in the database
       for (const notification of notifications) {
         await Notification.create({
@@ -229,7 +239,7 @@ export const generateStudyPlan = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Find the user to get their learning style
@@ -264,7 +274,7 @@ export const updateStudyPlan = async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Find the user's study plan
@@ -301,10 +311,13 @@ export const updateStudyPlan = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Generate adaptive study plan based on performance
-export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => {
+// Generate an adaptive study plan based on performance data
+export const generateAdaptiveStudyPlan = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
     // Get user's performance data
     const performanceData = await PerformanceData.find({ userId }).sort({ date: -1 });
@@ -351,8 +364,8 @@ export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => 
       .map(([subject]) => subject);
 
     // Generate daily and weekly goals based on weak areas and learning style
-    const dailyGoals = [];
-    const weeklyGoals = [];
+    const dailyGoals: Task[] = [];
+    const weeklyGoals: Task[] = [];
     const recommendations = [];
 
     // Add more practice for weak areas
@@ -360,149 +373,40 @@ export const generateAdaptiveStudyPlan = async (req: Request, res: Response) => 
       dailyGoals.push({
         task: `Practice 30 ${subject} questions`,
         status: 'pending',
-      });
+      } as Task);
       
       // Add learning style specific tasks
       if (user.learningStyle === 'visual') {
         weeklyGoals.push({
           task: `Watch 3 ${subject} video tutorials`,
           status: 'pending',
-        });
+        } as Task);
       } else if (user.learningStyle === 'auditory') {
         weeklyGoals.push({
-          task: `Listen to 2 ${subject} audio lessons`,
+          task: `Listen to ${subject} podcasts or audio lectures`,
           status: 'pending',
-        });
-      } else if (user.learningStyle === 'kinesthetic') {
-        weeklyGoals.push({
-          task: `Complete 2 interactive ${subject} exercises`,
-          status: 'pending',
-        });
-      } else {
-        weeklyGoals.push({
-          task: `Read 2 ${subject} study guides`,
-          status: 'pending',
-        });
+        } as Task);
       }
     });
 
-    // Accelerate progress for mastered areas
-    masteredAreas.forEach((subject) => {
-      // Reduced practice for mastered subjects (accelerated pace)
-      dailyGoals.push({
-        task: `Quick review: 5 ${subject} advanced questions`,
-        status: 'pending',
-      });
-      
-      // Add advanced content for mastered subjects
-      weeklyGoals.push({
-        task: `Take 1 advanced ${subject} practice test`,
-        status: 'pending',
-      });
+    // Save the generated study plan
+    const newStudyPlan = new StudyPlan({
+      userId,
+      dailyGoals,
+      weeklyGoals,
+      recommendations,
+      progress: 0,
+      completedTopics: []
     });
 
-    // Add additional resources for struggling areas
-    strugglingAreas.forEach((subject) => {
-      dailyGoals.push({
-        task: `Complete ${subject} fundamentals review`,
-        status: 'pending',
-      });
-      
-      // Create recommendation with additional resources
-      recommendations.push({
-        subject,
-        subtopics: ['Fundamentals', 'Basic Concepts'],
-        resources: [
-          `Extra ${subject} practice worksheets`,
-          `${subject} concept maps`,
-          `Interactive ${subject} tutorials`
-        ],
-        priority: 'high',
-      });
-      
-      // Learning style specific supplemental resources
-      if (user.learningStyle === 'visual') {
-        weeklyGoals.push({
-          task: `Study ${subject} visual reference guides`,
-          status: 'pending',
-        });
-      } else if (user.learningStyle === 'auditory') {
-        weeklyGoals.push({
-          task: `Listen to ${subject} concept explanation podcasts`,
-          status: 'pending',
-        });
-      } else if (user.learningStyle === 'kinesthetic') {
-        weeklyGoals.push({
-          task: `Complete hands-on ${subject} practice exercises`,
-          status: 'pending',
-        });
-      } else {
-        weeklyGoals.push({
-          task: `Read simplified ${subject} explanation guides`,
-          status: 'pending',
-        });
-      }
-    });
-
-    // Add maintenance for average-performing areas (not weak, not mastered)
-    Object.keys(subjectAverages)
-      .filter((subject) => !weakAreas.includes(subject) && !masteredAreas.includes(subject))
-      .forEach((subject) => {
-        dailyGoals.push({
-          task: `Practice 10 ${subject} questions`,
-          status: 'pending',
-        });
-      });
-
-    // Add general test preparation
-    weeklyGoals.push({
-      task: 'Complete 1 full practice exam',
-      status: 'pending',
-    });
-
-    // Update or create study plan
-    const existingPlan = await StudyPlan.findOne({ userId });
-    
-    let studyPlan;
-    if (existingPlan) {
-      studyPlan = await StudyPlan.findByIdAndUpdate(
-        existingPlan._id,
-        {
-          dailyGoals,
-          weeklyGoals,
-          recommendations: recommendations.length > 0 ? recommendations : existingPlan.recommendations,
-          progress: 0,
-          weakAreas,
-          masteredAreas,
-          strugglingAreas
-        },
-        { new: true }
-      );
-    } else {
-      studyPlan = await StudyPlan.create({
-        userId,
-        dailyGoals,
-        weeklyGoals,
-        recommendations,
-        progress: 0,
-        weakAreas,
-        masteredAreas,
-        strugglingAreas
-      });
-
-      // Link study plan to user
-      await User.findByIdAndUpdate(userId, { studyPlan: studyPlan._id });
-    }
+    await newStudyPlan.save();
 
     res.status(200).json({
-      studyPlan,
-      weakAreas,
-      masteredAreas,
-      strugglingAreas,
-      subjectAverages,
+      message: 'Adaptive study plan generated successfully',
+      studyPlan: newStudyPlan
     });
   } catch (error: any) {
     console.error('Generate adaptive study plan error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
-}; 
+};

@@ -12,15 +12,15 @@ export interface IUser extends Document {
   targetScore: number;
   testDate: Date;
   points: number;
-  badges: mongoose.Types.ObjectId[];
+  badges: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
   studyPlan: mongoose.Types.ObjectId;
-  performanceData: mongoose.Types.ObjectId[];
+  performanceData: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
   nextMiniAssessmentDate: Date;
   notificationSettings: {
     email: boolean;
     inApp: boolean;
   };
-  parents: mongoose.Types.ObjectId[];
+  parents: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
   sensitiveData?: {
     phoneNumber?: string;
     address?: string;
@@ -33,7 +33,7 @@ export interface IUser extends Document {
   onboardingCompleted: boolean;
   subscriptionStatus: string;
   currentSubscription: mongoose.Types.ObjectId;
-  subscriptionHistory: mongoose.Types.ObjectId[];
+  subscriptionHistory: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
   trialStartDate: Date;
   trialEndDate: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;

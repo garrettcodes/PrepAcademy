@@ -1,16 +1,61 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 
+// Define types for the offline content
+export interface Question {
+  _id: string;
+  text: string;
+  subject: string;
+  topic: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  options: Array<{
+    _id: string;
+    text: string;
+    isCorrect: boolean;
+  }>;
+  explanation: string;
+  category: string;
+  tags: string[];
+}
+
+export interface StudyMaterial {
+  _id: string;
+  title: string;
+  description: string;
+  content: string;
+  subject: string;
+  topic: string;
+  type: 'text' | 'video' | 'interactive';
+  duration?: number;
+  resourceUrl?: string;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+  }>;
+}
+
+export interface PendingAction {
+  type: 'answer' | 'progress' | 'note' | 'bookmark' | 'COMPLETE_ONBOARDING_STEP' | 'SKIP_ONBOARDING' | 'RESET_ONBOARDING' | 'UPDATE_STRESS_MANAGEMENT_PROGRESS';
+  contentType?: 'question' | 'studyMaterial' | 'questions' | 'studyMaterials' | 'stressManagement';
+  contentId?: string;
+  data: Record<string, any>;
+  timestamp: number;
+}
+
 interface OfflineContextType {
   isOnline: boolean;
   offlineContent: {
-    questions: any[];
-    studyMaterials: any[];
+    questions: Question[];
+    studyMaterials: StudyMaterial[];
+    stressManagement: any[];
   };
-  downloadForOffline: (contentType: string, contentId: string) => Promise<boolean>;
-  removeOfflineContent: (contentType: string, contentId: string) => void;
+  pendingActions: PendingAction[];
+  downloadForOffline: (contentType: 'questions' | 'studyMaterials' | 'stressManagement', contentId: string) => Promise<boolean>;
+  removeOfflineContent: (contentType: 'questions' | 'studyMaterials' | 'stressManagement', contentId: string) => void;
   syncOfflineProgress: () => Promise<boolean>;
-  isContentDownloaded: (contentType: string, contentId: string) => boolean;
+  isContentDownloaded: (contentType: 'questions' | 'studyMaterials' | 'stressManagement', contentId: string) => boolean;
+  addPendingAction: (action: Omit<PendingAction, 'timestamp'>) => void;
 }
 
 const OfflineContext = createContext<OfflineContextType | null>(null);
@@ -26,17 +71,18 @@ export const useOffline = () => {
 export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [offlineContent, setOfflineContent] = useState<{
-    questions: any[];
-    studyMaterials: any[];
+    questions: Question[];
+    studyMaterials: StudyMaterial[];
+    stressManagement: any[];
   }>(() => {
     // Initialize from localStorage if available
     const savedContent = localStorage.getItem('offlineContent');
     return savedContent
       ? JSON.parse(savedContent)
-      : { questions: [], studyMaterials: [] };
+      : { questions: [], studyMaterials: [], stressManagement: [] };
   });
   
-  const [pendingActions, setPendingActions] = useState<any[]>(() => {
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>(() => {
     // Initialize from localStorage if available
     const savedActions = localStorage.getItem('pendingOfflineActions');
     return savedActions ? JSON.parse(savedActions) : [];
@@ -75,7 +121,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [isOnline, pendingActions.length, token]);
   
-  const downloadForOffline = async (contentType: string, contentId: string) => {
+  const downloadForOffline = async (contentType: 'questions' | 'studyMaterials' | 'stressManagement', contentId: string) => {
     if (!isOnline) {
       return false;
     }
@@ -87,6 +133,8 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         endpoint = `/api/questions/${contentId}`;
       } else if (contentType === 'studyMaterials') {
         endpoint = `/api/studyplan/materials/${contentId}`;
+      } else if (contentType === 'stressManagement') {
+        endpoint = `/api/stress-management/${contentId}`;
       } else {
         throw new Error('Invalid content type');
       }
@@ -108,7 +156,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         
         // Check if content already exists
         const existingIndex = updatedContent[contentType].findIndex(
-          (item: any) => item._id === contentId
+          (item) => item._id === contentId
         );
         
         if (existingIndex >= 0) {
@@ -129,19 +177,21 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
   
-  const removeOfflineContent = (contentType: string, contentId: string) => {
-    setOfflineContent(prev => {
-      const updatedContent = { ...prev };
+  const removeOfflineContent = (contentType: 'questions' | 'studyMaterials' | 'stressManagement', contentId: string) => {
+    setOfflineContent((prevContent) => {
+      const updatedContent = { ...prevContent };
+      if (Array.isArray(updatedContent[contentType])) {
+        updatedContent[contentType] = updatedContent[contentType].filter(
+          (item: { _id: string }) => item._id !== contentId
+        );
+      }
       
-      updatedContent[contentType] = updatedContent[contentType].filter(
-        (item: any) => item._id !== contentId
-      );
-      
+      localStorage.setItem('offlineContent', JSON.stringify(updatedContent));
       return updatedContent;
     });
   };
   
-  const addPendingAction = (action: any) => {
+  const addPendingAction = (action: Omit<PendingAction, 'timestamp'>) => {
     setPendingActions(prev => [...prev, { ...action, timestamp: Date.now() }]);
   };
   
@@ -151,22 +201,58 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     
     try {
-      // Send all pending actions to the server
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ actions: pendingActions }),
-      });
+      // Group pending actions by type for batch processing
+      const actionsByType = pendingActions.reduce((groups, action) => {
+        const key = action.type;
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(action);
+        return groups;
+      }, {} as Record<string, PendingAction[]>);
       
-      if (!response.ok) {
-        throw new Error('Failed to sync offline progress');
+      const syncPromises = [];
+      
+      // Process each type of action
+      for (const [actionType, actions] of Object.entries(actionsByType)) {
+        let endpoint = '';
+        
+        switch (actionType) {
+          case 'answer':
+            endpoint = '/api/user-progress/batch-answers';
+            break;
+          case 'progress':
+            endpoint = '/api/user-progress/batch-progress';
+            break;
+          case 'note':
+            endpoint = '/api/notes/batch';
+            break;
+          case 'bookmark':
+            endpoint = '/api/bookmarks/batch';
+            break;
+          default:
+            continue;
+        }
+        
+        // Send batch request
+        syncPromises.push(
+          fetch(`${process.env.REACT_APP_API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ actions }),
+          })
+        );
       }
       
-      // Clear pending actions after successful sync
+      // Wait for all sync requests to complete
+      await Promise.all(syncPromises);
+      
+      // Clear all pending actions
       setPendingActions([]);
+      
       return true;
     } catch (error) {
       console.error('Error syncing offline progress:', error);
@@ -174,21 +260,23 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
   
-  const isContentDownloaded = (contentType: string, contentId: string) => {
-    return offlineContent[contentType].some((item: any) => item._id === contentId);
+  const isContentDownloaded = (contentType: 'questions' | 'studyMaterials' | 'stressManagement', contentId: string) => {
+    return offlineContent[contentType]?.some(item => item._id === contentId) || false;
+  };
+  
+  const value = {
+    isOnline,
+    offlineContent,
+    pendingActions,
+    downloadForOffline,
+    removeOfflineContent,
+    syncOfflineProgress,
+    isContentDownloaded,
+    addPendingAction,
   };
   
   return (
-    <OfflineContext.Provider
-      value={{
-        isOnline,
-        offlineContent,
-        downloadForOffline,
-        removeOfflineContent,
-        syncOfflineProgress,
-        isContentDownloaded,
-      }}
-    >
+    <OfflineContext.Provider value={value}>
       {children}
     </OfflineContext.Provider>
   );

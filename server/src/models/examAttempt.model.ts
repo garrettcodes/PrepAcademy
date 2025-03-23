@@ -13,7 +13,7 @@ export interface IExamAttempt extends Document {
   startTime: Date;
   endTime: Date;
   score: number;
-  answers: Answer[];
+  answers: Answer[] | Array<Answer>;
   completed: boolean;
 }
 

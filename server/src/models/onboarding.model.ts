@@ -1,15 +1,21 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IOnboarding extends Document {
-  user: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
   steps: {
-    welcomeIntro: boolean;
+    personalInfo: boolean;
+    learningStyleAssessment: boolean;
+    goalSetting: boolean;
+    subjectPreferences: boolean;
     diagnosticTest: boolean;
-    studyPlan: boolean;
-    practiceExams: boolean;
-    appNavigation: boolean;
-    progressTracking: boolean;
   };
+  preferences: {
+    subjects: string[] | Array<string>;
+    studyHours: number;
+    reminderFrequency: string;
+  };
+  learningStyle: string;
+  completed: boolean;
   completedAt?: Date;
   lastStepCompletedAt: Date;
   isCompleted: boolean;
@@ -17,14 +23,26 @@ export interface IOnboarding extends Document {
 
 const OnboardingSchema: Schema = new Schema(
   {
-    user: {
+    userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
       unique: true,
     },
     steps: {
-      welcomeIntro: {
+      personalInfo: {
+        type: Boolean,
+        default: false,
+      },
+      learningStyleAssessment: {
+        type: Boolean,
+        default: false,
+      },
+      goalSetting: {
+        type: Boolean,
+        default: false,
+      },
+      subjectPreferences: {
         type: Boolean,
         default: false,
       },
@@ -32,22 +50,24 @@ const OnboardingSchema: Schema = new Schema(
         type: Boolean,
         default: false,
       },
-      studyPlan: {
-        type: Boolean,
-        default: false,
+    },
+    preferences: {
+      subjects: {
+        type: [String],
       },
-      practiceExams: {
-        type: Boolean,
-        default: false,
+      studyHours: {
+        type: Number,
       },
-      appNavigation: {
-        type: Boolean,
-        default: false,
+      reminderFrequency: {
+        type: String,
       },
-      progressTracking: {
-        type: Boolean,
-        default: false,
-      },
+    },
+    learningStyle: {
+      type: String,
+    },
+    completed: {
+      type: Boolean,
+      default: false,
     },
     completedAt: {
       type: Date,

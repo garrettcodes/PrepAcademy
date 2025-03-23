@@ -11,6 +11,10 @@ export interface IBadge extends Document {
     score?: number;
     questionCount?: number;
   };
+  rarity: string;
+  requiredScore?: number;
+  requiredTasks?: string[] | Array<string>;
+  subject?: string;
 }
 
 const BadgeSchema: Schema = new Schema(
@@ -43,6 +47,21 @@ const BadgeSchema: Schema = new Schema(
       subject: String,
       score: Number,
       questionCount: Number,
+    },
+    rarity: {
+      type: String,
+      enum: ['common', 'uncommon', 'rare', 'epic', 'legendary'],
+      default: 'common',
+    },
+    requiredScore: {
+      type: Number,
+    },
+    requiredTasks: {
+      type: [String],
+      default: [],
+    },
+    subject: {
+      type: String,
     },
   },
   { timestamps: true }

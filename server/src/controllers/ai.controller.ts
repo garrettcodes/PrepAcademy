@@ -25,6 +25,11 @@ export const getAiStatus = async (req: Request, res: Response) => {
 export const getHint = async (req: Request, res: Response) => {
   try {
     const { questionId, hintIndex = 0 } = req.body;
+    
+    // Ensure the user exists in the request
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
     // Get the question
     const question = await Question.findById(questionId);
@@ -52,6 +57,11 @@ export const getHint = async (req: Request, res: Response) => {
 export const getExplanation = async (req: Request, res: Response) => {
   try {
     const { questionId } = req.body;
+    
+    if (!req.user) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const userId = req.user.userId;
 
     // Get the question
@@ -81,8 +91,13 @@ export const getExplanation = async (req: Request, res: Response) => {
 // Get personalized study recommendations
 export const getRecommendations = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
     const { subject } = req.body;
+    
+    if (!req.user) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    const userId = req.user.userId;
 
     // Get user to determine learning style
     const user = await User.findById(userId);

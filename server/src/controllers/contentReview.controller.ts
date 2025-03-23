@@ -1,14 +1,39 @@
 import { Request, Response } from 'express';
-import ContentReview from '../models/contentReview.model';
+import ContentReview, { IContentReview } from '../models/contentReview.model';
 import Question from '../models/question.model';
 import Exam from '../models/exam.model';
 import mongoose from 'mongoose';
 
+interface FlagContentRequest {
+  contentType: 'question' | 'hint' | 'explanation' | 'exam';
+  contentId: string;
+  reason: string;
+  satActChangeReference?: string;
+}
+
+interface ReviewStatusUpdateRequest {
+  status: 'pending' | 'reviewed' | 'updated' | 'rejected';
+  comments?: string;
+  resolution?: string;
+}
+
+interface ContentUpdateRequest {
+  contentType: 'question' | 'hint' | 'explanation' | 'exam';
+  contentId: string;
+  updateData: Record<string, any>; // The structure will vary based on content type
+  reason: string;
+  satActChangeReference?: string;
+}
+
 // Flag content for review
 export const flagContent = async (req: Request, res: Response) => {
   try {
-    const { contentType, contentId, reason, satActChangeReference } = req.body;
-    const userId = req.user.userId;
+    const { contentType, contentId, reason, satActChangeReference } = req.body as FlagContentRequest;
+    const userId = req.user?.userId as string;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
     // Validate content exists
     let content;
@@ -131,40 +156,37 @@ export const getReviewById = async (req: Request, res: Response) => {
 // Update content review status
 export const updateReviewStatus = async (req: Request, res: Response) => {
   try {
-    const { reviewId } = req.params;
-    const { status, comments, resolution, updatedContent } = req.body;
-    const userId = req.user.userId;
+    const reviewId = req.params.reviewId;
+    const { status, comments, resolution } = req.body as ReviewStatusUpdateRequest;
+    const userId = req.user?.userId as string;
 
-    // Find the review
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     const review = await ContentReview.findById(reviewId);
-    
+
     if (!review) {
       return res.status(404).json({ message: 'Review not found' });
     }
 
-    // Update review
+    // Update the review
     review.status = status;
-    review.comments = comments;
-    review.resolution = resolution;
     review.reviewedBy = new mongoose.Types.ObjectId(userId);
     review.reviewedAt = new Date();
-
-    // If content is being updated, store the updated version
-    if (status === 'updated' && updatedContent) {
-      review.updatedContentVersion = updatedContent;
-      
-      // Update the actual content
-      if (review.contentType === 'question') {
-        await Question.findByIdAndUpdate(review.contentId, updatedContent);
-      } else if (review.contentType === 'exam') {
-        await Exam.findByIdAndUpdate(review.contentId, updatedContent);
-      }
+    
+    if (comments) {
+      review.comments = [comments];
+    }
+    
+    if (resolution) {
+      review.resolution = resolution;
     }
 
     await review.save();
 
     res.status(200).json({
-      message: 'Review updated successfully',
+      message: 'Review status updated',
       review
     });
   } catch (error: any) {
@@ -215,8 +237,12 @@ export const getReviewStats = async (req: Request, res: Response) => {
 // Create a new SAT/ACT update entry
 export const createContentUpdate = async (req: Request, res: Response) => {
   try {
-    const { contentType, contentId, reason, updatedContent, satActChangeReference } = req.body;
-    const userId = req.user.userId;
+    const { contentType, contentId, updateData, reason, satActChangeReference } = req.body as ContentUpdateRequest;
+    const userId = req.user?.userId as string;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
 
     // Validate content exists
     let content;
@@ -230,7 +256,14 @@ export const createContentUpdate = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Content not found' });
     }
 
-    // Create review record
+    // Update the content based on type
+    if (contentType === 'question') {
+      await Question.findByIdAndUpdate(contentId, updateData);
+    } else if (contentType === 'exam') {
+      await Exam.findByIdAndUpdate(contentId, updateData);
+    }
+
+    // Record the update in content review
     const contentReview = await ContentReview.create({
       contentType,
       contentId,
@@ -239,20 +272,12 @@ export const createContentUpdate = async (req: Request, res: Response) => {
       reviewedAt: new Date(),
       status: 'updated',
       reason,
-      comments: 'Updated due to SAT/ACT changes',
-      resolution: 'Content updated to reflect new SAT/ACT standards',
-      updatedContentVersion: updatedContent,
-      satActChangeReference
+      resolution: 'Content updated',
+      updatedContentVersion: updateData,
+      satActChangeReference: satActChangeReference || ''
     });
 
-    // Update the actual content
-    if (contentType === 'question') {
-      await Question.findByIdAndUpdate(contentId, updatedContent);
-    } else if (contentType === 'exam') {
-      await Exam.findByIdAndUpdate(contentId, updatedContent);
-    }
-
-    res.status(201).json({
+    res.status(200).json({
       message: 'Content updated successfully',
       contentReview
     });

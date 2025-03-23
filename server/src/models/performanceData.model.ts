@@ -7,6 +7,8 @@ export interface IPerformanceData extends Document {
   score: number;
   studyTime: number;
   date: Date;
+  questionIds?: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
+  examId?: mongoose.Types.ObjectId;
 }
 
 const PerformanceDataSchema: Schema = new Schema(

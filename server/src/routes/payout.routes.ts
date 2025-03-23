@@ -1,14 +1,21 @@
-import express from 'express';
-import payoutController from '../controllers/payout.controller';
-import { isAuthenticated, isAdmin } from '../middleware/auth.middleware';
+import { Router } from 'express';
+import * as payoutController from '../controllers/payout.controller';
+import { protect, authorize } from '../middleware/auth.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// Routes for payout operations (admin only access)
-router.post('/create', isAuthenticated, isAdmin, payoutController.createManualPayout);
-router.get('/list', isAuthenticated, isAdmin, payoutController.getPayouts);
-router.get('/details/:payoutId', isAuthenticated, isAdmin, payoutController.getPayoutDetails);
-router.post('/cancel/:payoutId', isAuthenticated, isAdmin, payoutController.cancelPendingPayout);
-router.get('/schedule', isAuthenticated, isAdmin, payoutController.getPayoutScheduleStatus);
+// All routes require authentication
+router.use(protect);
+
+// Expert routes
+router.get('/account-status', payoutController.getStripeAccountStatus);
+router.post('/create-account', payoutController.createStripeAccount);
+router.post('/onboard-account', payoutController.onboardStripeAccount);
+router.get('/balance', payoutController.getBalance);
+router.get('/payouts', payoutController.getPayoutHistory);
+
+// Admin routes
+router.get('/admin/accounts', authorize('admin'), payoutController.getAllConnectedAccounts);
+router.post('/admin/transfer', authorize('admin'), payoutController.createTransfer);
 
 export default router; 

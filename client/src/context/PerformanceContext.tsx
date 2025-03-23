@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import performanceService from '../services/performanceService';
 import { useAuth } from './AuthContext';
+import axios from 'axios';
 
 // Types for performance data
 interface PerformanceData {
@@ -46,7 +47,34 @@ interface ProjectedScore {
   oneMonth: number;
 }
 
-interface PerformanceContextProps {
+// Define performance summary interface
+interface PerformanceSummary {
+  totalPracticeQuestions: number;
+  correctAnswers: number;
+  totalExamsTaken: number;
+  averageScore: number;
+  recentScores: {
+    date: string;
+    score: number;
+  }[];
+  improvementAreas: {
+    subject: string;
+    topic: string;
+    accuracyRate: number;
+  }[];
+  strengths: {
+    subject: string;
+    topic: string;
+    accuracyRate: number;
+  }[];
+  questionsAnswered: number;
+  studyTimeHours: number;
+}
+
+// Define performance context interface
+export interface PerformanceContextProps {
+  performanceSummary: PerformanceSummary | null;
+  fetchPerformanceSummary: () => Promise<void>;
   loading: boolean;
   error: string | null;
   performanceData: PerformanceData[];
@@ -82,6 +110,7 @@ export const PerformanceProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // New state for advanced analytics
   const [improvementRates, setImprovementRates] = useState<Record<string, ImprovementRate>>({});
   const [projectedScores, setProjectedScores] = useState<Record<string, ProjectedScore>>({});
+  const [performanceSummary, setPerformanceSummary] = useState<PerformanceSummary | null>(null);
 
   // Fetch performance data
   const fetchPerformanceData = async (subject?: string, startDate?: string, endDate?: string) => {
@@ -157,16 +186,48 @@ export const PerformanceProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
+  // Fetch performance summary
+  const fetchPerformanceSummary = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/performance/summary`,
+        {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+          },
+        }
+      );
+
+      setPerformanceSummary(response.data);
+    } catch (err: any) {
+      console.error('Error fetching performance summary:', err);
+      setError(
+        err.response?.data?.message ||
+          'Failed to fetch performance summary. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch performance data on initial load if user is authenticated
   useEffect(() => {
     if (user) {
       fetchPerformanceData();
+      fetchPerformanceSummary();
     }
   }, [user]);
 
   return (
     <PerformanceContext.Provider
       value={{
+        performanceSummary,
+        fetchPerformanceSummary,
         loading,
         error,
         performanceData,

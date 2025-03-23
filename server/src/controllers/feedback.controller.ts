@@ -10,7 +10,7 @@ export const submitFeedback = async (req: Request, res: Response) => {
     const userId = req.user?._id;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'User not authenticated' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const feedback = await Feedback.create({
@@ -42,7 +42,7 @@ export const getUserFeedback = async (req: Request, res: Response) => {
     const userId = req.user?._id;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'User not authenticated' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const feedback = await Feedback.find({ user: userId }).sort({
@@ -69,7 +69,7 @@ export const getAllFeedback = async (req: Request, res: Response) => {
     const userRole = req.user?.role;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'User not authenticated' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Only admins can see all feedback
@@ -128,7 +128,7 @@ export const getFeedbackById = async (req: Request, res: Response) => {
     const userRole = req.user?.role;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'User not authenticated' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const feedback = await Feedback.findById(feedbackId).populate(
@@ -172,7 +172,7 @@ export const updateFeedbackStatus = async (req: Request, res: Response) => {
     const { status, priority, adminNotes, response } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'User not authenticated' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     // Only admins can update feedback status
@@ -249,7 +249,7 @@ export const deleteFeedback = async (req: Request, res: Response) => {
     const userRole = req.user?.role;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'User not authenticated' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     const feedback = await Feedback.findById(feedbackId);

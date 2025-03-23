@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import * as performanceController from '../controllers/performance.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { protect } from '../middleware/auth.middleware';
 import { checkTrialMiddleware, checkSubscriptionMiddleware } from '../middleware/subscription.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(protect);
 
 // Basic performance routes - available in trial
 // Get basic performance overview (limited data)

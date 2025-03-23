@@ -2,13 +2,43 @@ import { Request, Response } from 'express';
 import Challenge from '../models/challenge.model';
 import ChallengeParticipation from '../models/challengeParticipation.model';
 import User from '../models/user.model';
-import { createNotification } from './notification.controller';
+import { createNotification, NotificationData } from './notification.controller';
 import mongoose from 'mongoose';
+import { AuthRequest } from '../types';
+
+// Additional interface to ensure proper type safety
+interface IChallengeWithId extends mongoose.Document {
+  _id: mongoose.Types.ObjectId;
+  title: string;
+  reward: {
+    points: number;
+    badgeId?: string | mongoose.Types.ObjectId;
+  };
+  target: number;
+}
+
+interface IParticipationWithId extends mongoose.Document {
+  _id: mongoose.Types.ObjectId;
+  isCompleted: boolean;
+  isRewarded: boolean;
+  progress: number;
+  save(): Promise<this>;  // Changed to return this
+}
+
+// Define challenge interface for type safety
+interface ChallengeWithParticipation {
+  participation: IParticipationWithId;
+  challenge: IChallengeWithId;
+}
 
 // Get all active challenges
-export const getActiveChallenges = async (req: Request, res: Response) => {
+export const getActiveChallenges = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
     // Get all active challenges
     const now = new Date();
@@ -47,9 +77,14 @@ export const getActiveChallenges = async (req: Request, res: Response) => {
 };
 
 // Join a challenge
-export const joinChallenge = async (req: Request, res: Response) => {
+export const joinChallenge = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const { challengeId } = req.params;
     
     // Check if challenge exists and is active
@@ -118,7 +153,7 @@ export const updateChallengeProgress = async (
     
     if (participations.length === 0) return null;
     
-    const completedChallenges = [];
+    const completedChallenges: ChallengeWithParticipation[] = [];
     
     // Update each participation
     for (const participation of participations) {
@@ -153,7 +188,7 @@ export const updateChallengeProgress = async (
         title: 'Challenge Completed!',
         message: `You've completed the "${challenge.title}" challenge!`,
         type: 'challenge',
-        relatedId: challenge._id,
+        relatedId: challenge._id.toString(),
       });
       
       // Award points if not already rewarded
@@ -224,7 +259,7 @@ export const createChallenge = async (req: Request, res: Response) => {
         title: 'New Challenge Available!',
         message: `A new challenge "${title}" is now available. Join now to earn rewards!`,
         type: 'challenge',
-        relatedId: challenge._id,
+        relatedId: challenge._id.toString(),
       });
     }
     
@@ -239,9 +274,13 @@ export const createChallenge = async (req: Request, res: Response) => {
 };
 
 // Get user's challenge progress
-export const getUserChallenges = async (req: Request, res: Response) => {
+export const getUserChallenges = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
     // Get user's participations with populated challenge data
     const participations = await ChallengeParticipation.find({ user: userId })

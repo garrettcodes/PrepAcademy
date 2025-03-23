@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -10,6 +10,11 @@ import path from 'path';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { secureCookieSettings, csrfProtection } from './middleware/auth.middleware';
+import { requestLogger, errorLogger } from './middleware/logging.middleware';
+import connectDB from './utils/database'; // Import the database connection utility
+import { validateEnv } from './utils/envValidator'; // Import the environment validator
+import config from './utils/config'; // Import the centralized configuration
+import logger from './utils/logger'; // Import the logger
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -46,12 +51,19 @@ import { initializePayoutSchedule } from './controllers/payout.controller';
 // Import subscription jobs
 import { scheduleSubscriptionJobs } from './jobs/subscriptionJobs';
 
+// Start logging the application startup
+logger.info('PrepAcademy server starting...');
+logger.info(`Environment: ${config.server.nodeEnv}`);
+
 // Load environment variables
 dotenv.config();
 
+// Validate environment variables before proceeding
+validateEnv();
+
 // Initialize Express app
 const app: Express = express();
-const PORT = process.env.PORT || 5000;
+const PORT = config.server.port.toString();
 
 // Security middleware
 // Apply helmet to secure HTTP headers
@@ -84,10 +96,17 @@ const authRateLimiter = rateLimit({
   message: 'Too many login attempts from this IP, please try again after 15 minutes'
 });
 
+// Add request logging middleware
+app.use(requestLogger);
+
 // General middleware
 app.use(cors());
 app.use(express.json());
-app.use(morgan('dev'));
+
+// Skip Morgan in production since we have our own logger
+if (config.server.isDevelopment) {
+  app.use(morgan('dev'));
+}
 
 // Apply auth rate limiter to login and register routes
 app.use('/api/auth/login', authRateLimiter);
@@ -128,34 +147,59 @@ app.get('/', (req: Request, res: Response) => {
   res.send('PrepAcademy API is running');
 });
 
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGO_URI as string)
+// Create an API endpoint for system health check
+app.get('/health', (req: Request, res: Response) => {
+  const healthcheck = {
+    uptime: process.uptime(),
+    message: 'OK',
+    timestamp: Date.now(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  };
+  res.status(200).json(healthcheck);
+});
+
+// Add error logging middleware
+app.use(errorLogger);
+
+// Global error handler
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  // Set status code
+  const statusCode = err.statusCode || 500;
+
+  // Send error response
+  res.status(statusCode).json({
+    error: {
+      message: err.message || 'Internal Server Error',
+      status: statusCode,
+      ...(config.server.isDevelopment && { stack: err.stack }),
+    }
+  });
+});
+
+// Connect to MongoDB using the database utility
+connectDB()
   .then(() => {
-    console.log('Connected to MongoDB');
-    
     // Check if HTTPS is enabled
-    const isHttpsEnabled = process.env.ENABLE_HTTPS === 'true';
-    
-    if (isHttpsEnabled) {
+    if (config.https.enabled) {
       // HTTPS Configuration
       try {
         const options = {
-          key: fs.readFileSync(path.resolve(process.env.SSL_KEY_PATH || 'ssl/server.key')),
-          cert: fs.readFileSync(path.resolve(process.env.SSL_CERT_PATH || 'ssl/server.cert')),
+          key: fs.readFileSync(path.resolve(config.https.keyPath)),
+          cert: fs.readFileSync(path.resolve(config.https.certPath)),
         };
         
         // Create HTTPS server
         const httpsServer = https.createServer(options, app);
         httpsServer.listen(PORT, () => {
-          console.log(`HTTPS Server running on port ${PORT}`);
+          logger.info(`HTTPS Server running on port ${PORT}`);
           runScheduledTasks();
           // Schedule subscription jobs
           scheduleSubscriptionJobs();
         });
-      } catch (error) {
-        console.error('Error starting HTTPS server:', error);
-        console.log('Falling back to HTTP server...');
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('Error starting HTTPS server:', { meta: { error: errorMessage } });
+        logger.info('Falling back to HTTP server...');
         startHttpServer();
       }
     } else {
@@ -163,64 +207,83 @@ mongoose
       startHttpServer();
     }
   })
-  .catch((error) => {
-    console.error('MongoDB connection error:', error);
+  .catch((error: unknown) => {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to start the server:', { meta: { error: errorMessage } });
+    process.exit(1); // Exit with error code
   });
 
 // Function to start HTTP server
 function startHttpServer() {
   app.listen(PORT, () => {
-    console.log(`HTTP Server running on port ${PORT}`);
+    logger.info(`HTTP Server running on port ${PORT}`);
     runScheduledTasks();
+    // Schedule subscription jobs
+    scheduleSubscriptionJobs();
   });
 }
 
 // Function to run scheduled tasks
 function runScheduledTasks() {
+  logger.info('Initializing scheduled tasks...');
+  
   // Schedule cron job to check for due mini-assessments daily at 8am
   cron.schedule('0 8 * * *', async () => {
-    console.log('Running scheduled check for due mini-assessments...');
+    logger.info('Running scheduled check for due mini-assessments...');
     try {
       const count = await checkAndNotifyDueMiniAssessments();
-      console.log(`Notified ${count} users about due mini-assessments`);
-    } catch (error) {
-      console.error('Error running scheduled mini-assessment check:', error);
+      logger.info(`Notified ${count} users about due mini-assessments`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error running scheduled mini-assessment check:', { meta: { error: errorMessage } });
     }
   });
   
   // Schedule cron job to update leaderboards every hour
   cron.schedule('0 * * * *', async () => {
-    console.log('Running scheduled leaderboard update...');
+    logger.info('Running scheduled leaderboard update...');
     try {
       const success = await updateAllLeaderboards();
-      console.log(`Leaderboards update ${success ? 'successful' : 'failed'}`);
-    } catch (error) {
-      console.error('Error running scheduled leaderboard update:', error);
+      logger.info(`Leaderboards update ${success ? 'successful' : 'failed'}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error running scheduled leaderboard update:', { meta: { error: errorMessage } });
     }
   });
   
   // Check subscription statuses every hour
   cron.schedule('0 * * * *', async () => {
-    console.log('Checking subscription statuses...');
+    logger.info('Checking subscription statuses...');
     try {
       await checkSubscriptionStatuses();
-    } catch (error) {
-      console.error('Error checking subscription statuses:', error);
+      logger.info('Subscription status check completed');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error checking subscription statuses:', { meta: { error: errorMessage } });
     }
   });
   
   // Initialize the payout schedule on server start
   initializePayoutSchedule()
-    .then(() => console.log('Payout schedule initialized'))
-    .catch(error => console.error('Error initializing payout schedule:', error));
+    .then(() => logger.info('Payout schedule initialized'))
+    .catch((error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error initializing payout schedule:', { meta: { error: errorMessage } });
+    });
   
   // Also run an initial check when the server starts
   checkAndNotifyDueMiniAssessments()
-    .then(count => console.log(`Initial check: Notified ${count} users about due mini-assessments`))
-    .catch(error => console.error('Error during initial mini-assessment check:', error));
+    .then(count => logger.info(`Initial check: Notified ${count} users about due mini-assessments`))
+    .catch((error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error during initial mini-assessment check:', { meta: { error: errorMessage } });
+    });
   
   // Also run an initial leaderboard update
   updateAllLeaderboards()
-    .then(success => console.log(`Initial leaderboard update ${success ? 'successful' : 'failed'}`))
-    .catch(error => console.error('Error during initial leaderboard update:', error));
+    .then(success => logger.info(`Initial leaderboard update ${success ? 'successful' : 'failed'}`))
+    .catch((error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Error during initial leaderboard update:', { meta: { error: errorMessage } });
+    });
 } 

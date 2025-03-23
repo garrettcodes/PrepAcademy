@@ -1,20 +1,19 @@
-import express from 'express';
-import { protect } from '../middleware/auth';
-import {
-  getNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-} from '../controllers/notification.controller';
+import { Router } from 'express';
+import * as notificationController from '../controllers/notification.controller';
+import { protect } from '../middleware/auth.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// GET /api/notifications - Get all notifications for a user
-router.get('/', protect, getNotifications);
+// All routes require authentication
+router.use(protect);
 
-// PUT /api/notifications/:notificationId - Mark a notification as read
-router.put('/:notificationId', protect, markNotificationAsRead);
+// Get all notifications
+router.get('/', notificationController.getNotifications);
 
-// PUT /api/notifications/read/all - Mark all notifications as read
-router.put('/read/all', protect, markAllNotificationsAsRead);
+// Mark notification as read
+router.put('/:notificationId/read', notificationController.markNotificationAsRead);
+
+// Mark all notifications as read
+router.put('/read-all', notificationController.markAllNotificationsAsRead);
 
 export default router; 

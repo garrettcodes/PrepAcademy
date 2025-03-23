@@ -5,12 +5,12 @@ import {
   skipOnboarding, 
   resetOnboarding 
 } from '../controllers/onboarding.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { protect } from '../middleware/auth.middleware';
 
 const router = express.Router();
 
 // Require authentication for all onboarding routes
-router.use(authMiddleware);
+router.use(protect);
 
 // Get onboarding status
 router.get('/status', getOnboardingStatus);

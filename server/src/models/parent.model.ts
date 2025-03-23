@@ -6,7 +6,7 @@ export interface IParent extends Document {
   email: string;
   password: string;
   phone?: string;
-  students: mongoose.Types.ObjectId[];  // References to User model (students)
+  students: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;  // References to User model (students)
   notificationSettings: {
     email: boolean;
     sms: boolean;

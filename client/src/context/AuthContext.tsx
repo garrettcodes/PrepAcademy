@@ -31,6 +31,7 @@ interface IAuthContext {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  token?: string;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -38,6 +39,7 @@ interface IAuthContext {
   miniAssessmentDue: boolean;
   nextMiniAssessmentDate: Date | null;
   checkMiniAssessmentStatus: () => Promise<void>;
+  getUser?: () => Promise<void>;
 }
 
 // Create auth context
@@ -171,6 +173,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Get user data
+  const getUser = async () => {
+    if (!user || !user.token) return;
+
+    try {
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+
+      const userData = response.data;
+      const updatedUser = { ...userData, token: user.token };
+      
+      // Update user in state and localStorage
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      return updatedUser;
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
   useEffect(() => {
     // Check mini-assessment status on initial load and when auth state changes
     if (isAuthenticated) {
@@ -204,6 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         miniAssessmentDue,
         nextMiniAssessmentDate,
         checkMiniAssessmentStatus,
+        getUser
       }}
     >
       {children}

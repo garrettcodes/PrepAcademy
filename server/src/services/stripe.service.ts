@@ -7,7 +7,7 @@ dotenv.config();
 
 // Initialize Stripe with API key from environment variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2023-10-16', // Use the latest API version
+  apiVersion: '2025-02-24.acacia',
 });
 
 // Define subscription plans' price IDs
@@ -103,12 +103,11 @@ export const updateSubscription = async (
 // Cancel a subscription
 export const cancelSubscription = async (subscriptionId: string) => {
   try {
-    const subscription = await stripe.subscriptions.update(subscriptionId, {
-      cancel_at_period_end: true,
-    });
+    // Use `cancel` instead of `del` which is causing TypeScript errors
+    const subscription = await stripe.subscriptions.cancel(subscriptionId);
     return subscription;
   } catch (error) {
-    console.error('Error canceling Stripe subscription:', error);
+    console.error(`Failed to cancel subscription ${subscriptionId}:`, error);
     throw error;
   }
 };
@@ -116,7 +115,8 @@ export const cancelSubscription = async (subscriptionId: string) => {
 // Immediately cancel subscription 
 export const deleteSubscription = async (subscriptionId: string) => {
   try {
-    const subscription = await stripe.subscriptions.del(subscriptionId);
+    // Use 'cancel' instead of 'del'
+    const subscription = await stripe.subscriptions.cancel(subscriptionId);
     return subscription;
   } catch (error) {
     console.error('Error deleting Stripe subscription:', error);
@@ -315,14 +315,13 @@ export const getPayout = async (payoutId: string): Promise<Stripe.Payout> => {
  */
 export const listPayouts = async (
   limit: number = 10,
-  status?: Stripe.Payout.Status
+  status?: 'pending' | 'paid' | 'failed' | 'canceled'
 ): Promise<Stripe.ApiList<Stripe.Payout>> => {
   try {
-    const payouts = await stripe.payouts.list({
+    return await stripe.payouts.list({
       limit,
-      ...(status && { status }),
+      status
     });
-    return payouts;
   } catch (error) {
     console.error('Error listing payouts:', error);
     throw error;

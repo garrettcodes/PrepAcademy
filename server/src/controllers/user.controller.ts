@@ -2,9 +2,28 @@ import { Request, Response } from 'express';
 import User from '../models/user.model';
 import { checkBadgeEligibility } from './badge.controller';
 
+// Define interfaces for request bodies
+interface UpdateProfileBody {
+  name?: string;
+  email?: string;
+  learningStyle?: string;
+  targetScore?: number;
+  testDate?: string | Date;
+}
+
+interface AddPointsBody {
+  points: number;
+  reason?: string;
+}
+
 // Get user profile
 export const getUserProfile = async (req: Request, res: Response) => {
   try {
+    // Ensure the user exists in the request
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const userId = req.user.userId;
     const user = await User.findById(userId).select('-password');
     
@@ -13,15 +32,21 @@ export const getUserProfile = async (req: Request, res: Response) => {
     }
     
     res.status(200).json(user);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get user profile error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 };
 
 // Update user profile
-export const updateUserProfile = async (req: Request, res: Response) => {
+export const updateUserProfile = async (req: Request<{}, {}, UpdateProfileBody>, res: Response) => {
   try {
+    // Ensure the user exists in the request
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const userId = req.user.userId;
     const { name, email, learningStyle, targetScore, testDate } = req.body;
     
@@ -50,15 +75,21 @@ export const updateUserProfile = async (req: Request, res: Response) => {
       targetScore: updatedUser.targetScore,
       testDate: updatedUser.testDate,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update user profile error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 };
 
 // Add points to user (for testing purposes)
-export const addPoints = async (req: Request, res: Response) => {
+export const addPoints = async (req: Request<{}, {}, AddPointsBody>, res: Response) => {
   try {
+    // Ensure the user exists in the request
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
     const userId = req.user.userId;
     const { points, reason } = req.body;
     
@@ -86,8 +117,9 @@ export const addPoints = async (req: Request, res: Response) => {
       user,
       earnedBadges: earnedBadges || []
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Add points error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    res.status(500).json({ message: 'Server error', error: errorMessage });
   }
 }; 

@@ -4,8 +4,8 @@ export interface IStudyGroup extends Document {
   name: string;
   description: string;
   owner: mongoose.Types.ObjectId;
-  members: mongoose.Types.ObjectId[];
-  topics: string[];
+  members: mongoose.Types.ObjectId[] | Array<mongoose.Types.ObjectId>;
+  topics: string[] | Array<string>;
   isPrivate: boolean;
   joinCode?: string;
   createdAt: Date;

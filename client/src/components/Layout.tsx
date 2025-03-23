@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useOffline } from '../context/OfflineContext';
+import { User } from '../types';
 import PointsBadge from './ui/PointsBadge';
 import OfflineIndicator from './ui/OfflineIndicator';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuth();
+  const { isOnline } = useOffline();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Toggle mobile menu
@@ -26,7 +30,7 @@ const Layout: React.FC = () => {
 
   // Check if user has admin or expert role
   const isAdminOrExpert = () => {
-    return user && (user.role === 'admin' || user.role === 'expert');
+    return user && ((user as any).role === 'admin' || (user as any).role === 'expert');
   };
 
   return (

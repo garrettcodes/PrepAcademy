@@ -7,16 +7,16 @@ export interface ISubscription extends Document {
   startDate: Date;
   endDate: Date;
   trialEndDate: Date | null;
-  stripeCustomerId: string;
-  stripeSubscriptionId: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
   lastPaymentDate: Date | null;
   nextPaymentDate: Date | null;
   paymentMethod: {
-    brand: string;
-    last4: string;
-    expiryMonth: number;
-    expiryYear: number;
-  } | null;
+    brand: string | null;
+    last4: string | null;
+    expiryMonth: number | null;
+    expiryYear: number | null;
+  };
   canceledAt: Date | null;
   cancelReason: string | null;
 }

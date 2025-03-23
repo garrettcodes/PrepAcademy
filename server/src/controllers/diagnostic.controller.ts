@@ -1,17 +1,11 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../types';
 import Question from '../models/question.model';
 import User from '../models/user.model';
 import StudyPlan from '../models/studyPlan.model';
 import PerformanceData from '../models/performanceData.model';
 import { detectLearningStyle, getLearningStyleRecommendations } from '../utils/learningStyleDetector';
 import { generateStudyPlan } from '../utils/studyPlanGenerator';
-
-// Extend Request type to include user property
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-  };
-}
 
 // Get diagnostic test questions
 export const getDiagnosticQuestions = async (req: Request, res: Response) => {
@@ -124,7 +118,7 @@ export const submitDiagnosticTest = async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ message: 'Not authorized' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
     if (!answers || !Array.isArray(answers)) {

@@ -72,7 +72,13 @@ const GamificationTest: React.FC = () => {
   const refreshUserData = async () => {
     try {
       addToLog('Refreshing user data...');
-      await getUser();
+      
+      // Only call getUser if it exists
+      if (getUser) {
+        await getUser();
+      } else {
+        addToLog('getUser function not available');
+      }
       
       // Refresh user badges
       const userBadgesResponse = await axios.get<BadgeType[]>(`${API_URL}/badges/user`);

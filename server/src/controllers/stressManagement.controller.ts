@@ -1,8 +1,12 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import StressManagementContent from '../models/stressManagement.model';
 import StressManagementProgress from '../models/stressManagementProgress.model';
 import User from '../models/user.model';
 import { updateChallengeProgress } from './challenge.controller';
+
+// Helper to convert string ID to ObjectId
+const toObjectId = (id: string) => new mongoose.Types.ObjectId(id);
 
 // Get all stress management content
 export const getAllContent = async (req: Request, res: Response) => {
@@ -45,7 +49,13 @@ export const getContentById = async (req: Request, res: Response) => {
 // Get all content with user progress
 export const getContentWithProgress = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     const { category } = req.query;
     
     let query = {};
@@ -65,7 +75,7 @@ export const getContentWithProgress = async (req: Request, res: Response) => {
     // Combine content with progress
     const contentWithProgress = content.map(item => {
       const userProgress = progress.find(
-        p => p.content.toString() === item._id.toString()
+        p => p.contentId.toString() === item._id.toString()
       );
       
       return {
@@ -94,7 +104,13 @@ export const getContentWithProgress = async (req: Request, res: Response) => {
 // Update user progress for content
 export const updateProgress = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     const { contentId } = req.params;
     const { progress, completed, rating, favorite, notes } = req.body;
     
@@ -107,7 +123,7 @@ export const updateProgress = async (req: Request, res: Response) => {
     // Find or create progress record
     let progressRecord = await StressManagementProgress.findOne({
       user: userId,
-      content: contentId,
+      contentId: contentId,
     });
     
     const wasCompleted = progressRecord?.completed || false;
@@ -115,7 +131,7 @@ export const updateProgress = async (req: Request, res: Response) => {
     if (!progressRecord) {
       progressRecord = new StressManagementProgress({
         user: userId,
-        content: contentId,
+        contentId: contentId,
       });
     }
     
@@ -195,24 +211,36 @@ export const createContent = async (req: Request, res: Response) => {
 // Get user favorites
 export const getFavorites = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
+    // Use userId if available, fall back to _id for compatibility
+    const userId = req.user?.userId || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
     
     // Get user's favorites
     const favorites = await StressManagementProgress.find({
       user: userId,
       favorite: true,
-    }).populate('content');
+    }).populate('contentId');
     
-    res.status(200).json(favorites.map(f => ({
-      ...f.content.toObject(),
-      userProgress: {
-        completed: f.completed,
-        progress: f.progress,
-        rating: f.rating,
-        favorite: f.favorite,
-        notes: f.notes,
-      }
-    })));
+    res.status(200).json(favorites.map(f => {
+      // Check if contentId is a populated document or an ObjectId
+      const contentObj = typeof f.contentId === 'object' && f.contentId !== null && 'toObject' in f.contentId && typeof f.contentId.toObject === 'function'
+        ? f.contentId.toObject()
+        : { _id: f.contentId };
+        
+      return {
+        ...contentObj,
+        userProgress: {
+          completed: f.completed,
+          progress: f.progress,
+          rating: f.rating,
+          favorite: f.favorite,
+          notes: f.notes,
+        }
+      };
+    }));
   } catch (error: any) {
     console.error('Get favorites error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });

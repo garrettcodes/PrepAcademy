@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import * as examController from '../controllers/exam.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { protect, authorize } from '../middleware/auth.middleware';
 import { checkTrialMiddleware, checkSubscriptionMiddleware } from '../middleware/subscription.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authMiddleware);
+router.use(protect);
 
 // Routes accessible during trial period
 // Get basic/sample exams (limited content for trial users)
@@ -41,8 +41,8 @@ router.get('/results/:attemptId', checkSubscriptionMiddleware, examController.ge
 router.get('/user/history', checkSubscriptionMiddleware, examController.getUserExamHistory);
 
 // Admin routes
-router.post('/', authMiddleware, examController.createExam);
-router.put('/:examId', authMiddleware, examController.updateExam);
-router.delete('/:examId', authMiddleware, examController.deleteExam);
+router.post('/', authorize('admin'), examController.createExam);
+router.put('/:examId', authorize('admin'), examController.updateExam);
+router.delete('/:examId', authorize('admin'), examController.deleteExam);
 
 export default router; 
